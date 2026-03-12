@@ -1,0 +1,21 @@
+# Generierte HTML-Ausgaben (werden per SFTP hochgeladen, nicht im Repo)
+scripts/*.html
+scripts/komplett*.html
+scripts/alle_teams.html
+scripts/naechste_spiele.html
+scripts/ligatabelle.html
+scripts/Aktuelle_Spiele.html
+
+# Generierte CSV-Ausgaben
+scripts/All_games_from_fussball_de.csv
+
+# macOS
+.DS_Store
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
