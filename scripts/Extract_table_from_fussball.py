@@ -32,28 +32,55 @@ SFTP_PASS = os.environ.get("SFTP_PASS", "")
 SFTP_REMOTE_DIR = os.environ.get("SFTP_REMOTE_DIR", "/abi-widgets/")
 
 
-def sftp_upload(local_files: list):
-    """Lädt alle lokalen HTML-Dateien per SFTP auf IONOS hoch."""
+def sftp_upload(local_files: list, kw_current: int, kw_prev: int):
+    """Lädt HTML-Dateien per SFTP hoch und setzt KW-basierte Aliase.
+
+    Ablauf:
+      1. Normale Dateien hochladen (current_week, next_week, etc.)
+      2. current_week.html auch als spiele_KW{kw_current}.html speichern
+      3. spiele_KW{kw_prev}.html vom Server lesen → als last_week.html hochladen
+    """
     if not SFTP_PASS:
         print("⚠️  SFTP_PASS nicht gesetzt – Upload übersprungen")
         return
-    print(f"\n📤 SFTP-Upload nach {SFTP_HOST}{SFTP_REMOTE_DIR} …")
+    import io
+    remote = SFTP_REMOTE_DIR.rstrip("/")
+    print(f"\n📤 SFTP-Upload nach {SFTP_HOST}{remote}/ …")
     transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
     try:
         transport.connect(username=SFTP_USER, password=SFTP_PASS)
         sftp = paramiko.SFTPClient.from_transport(transport)
         try:
-            sftp.mkdir(SFTP_REMOTE_DIR)
+            sftp.mkdir(remote)
         except Exception:
             pass  # Ordner existiert bereits
+
+        # 1. Normale Dateien hochladen
         for local_path in local_files:
             if not os.path.exists(local_path):
                 print(f"  ⚠️  Datei nicht gefunden: {local_path}")
                 continue
             filename = os.path.basename(local_path)
-            remote_path = SFTP_REMOTE_DIR.rstrip("/") + "/" + filename
-            sftp.put(local_path, remote_path)
-            print(f"  ✅ {filename} → {remote_path}")
+            sftp.put(local_path, f"{remote}/{filename}")
+            print(f"  ✅ {filename} → {remote}/{filename}")
+
+        # 2. current_week.html auch als spiele_KW{kw_current}.html ablegen
+        kw_current_filename = f"spiele_KW{kw_current}.html"
+        if os.path.exists("current_week.html"):
+            sftp.put("current_week.html", f"{remote}/{kw_current_filename}")
+            print(f"  ✅ current_week.html → {remote}/{kw_current_filename}")
+
+        # 3. spiele_KW{kw_prev}.html vom Server lesen → als last_week.html hochladen
+        kw_prev_filename = f"spiele_KW{kw_prev}.html"
+        try:
+            buf = io.BytesIO()
+            sftp.getfo(f"{remote}/{kw_prev_filename}", buf)
+            buf.seek(0)
+            sftp.putfo(buf, f"{remote}/last_week.html")
+            print(f"  ✅ {kw_prev_filename} (Server) → last_week.html")
+        except Exception as e:
+            print(f"  ⚠️  {kw_prev_filename} nicht gefunden – last_week.html bleibt leer ({e})")
+
         sftp.close()
     finally:
         transport.close()
@@ -524,17 +551,10 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 </div>"""
 
 
-# Letzte Woche
-print(f"Generiere last_week.html ({lw_von} – {lw_bis})")
-last_week_html = build_spiele_html(
-    df, lw_von, lw_bis,
-    titel=f"⚽ Letzte Woche ({lw_von.strftime('%d.%m.')} – {lw_bis.strftime('%d.%m.%y')})",
-    leer_text="Keine Spiele in der letzten Woche"
-)
-with open("last_week.html", "w", encoding="utf-8") as f:
-    f.write(last_week_html)
-print("last_week.html gespeichert")
-generated_html_files.append("last_week.html")
+# KW-Nummern für Alias-Logik
+kw_current = heute.isocalendar()[1]
+kw_prev = (heute - datetime.timedelta(weeks=1)).isocalendar()[1]
+print(f"Aktuelle KW: {kw_current}, Vorwoche KW: {kw_prev}")
 
 # Diese Woche (= bisherige Aktuelle_Spiele.html)
 print(f"Generiere current_week.html ({cw_von} – {cw_bis})")
@@ -670,4 +690,4 @@ for _, row in ad_teams.iterrows():
         f.write(spiele_html + liga_html)
     print(f"{filename} gespeichert")
 
-sftp_upload(generated_html_files)  # alle_teams, last_week, current_week, Aktuelle_Spiele, next_week
+sftp_upload(generated_html_files, kw_current=kw_current, kw_prev=kw_prev)
