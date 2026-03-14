@@ -408,16 +408,27 @@ def get_spielort(spiel_url):
         pass
     return "", ""
 
-# Zeitfenster: nächste 7 Tage ab heute
+# Datum parsen
 heute = datetime.date.today()
-bis = heute + datetime.timedelta(days=7)
 
-def in_zeitfenster(datum_str):
+def parse_datum(datum_str):
     try:
         d, m, y = datum_str.split(".")
-        return heute <= datetime.date(int(y) + 2000, int(m), int(d)) <= bis
+        return datetime.date(int(y) + 2000, int(m), int(d))
     except Exception:
-        return False
+        return None
+
+def in_zeitfenster(datum_str, von, bis):
+    d = parse_datum(datum_str)
+    return d is not None and von <= d <= bis
+
+# Drei Zeitfenster
+lw_von = heute - datetime.timedelta(days=7)   # letzte Woche: vor 7 Tagen
+lw_bis = heute - datetime.timedelta(days=1)   # letzte Woche: gestern
+cw_von = heute                                 # diese Woche: heute
+cw_bis = heute + datetime.timedelta(days=7)   # diese Woche: +7 Tage
+nw_von = heute + datetime.timedelta(days=8)   # nächste Woche: +8 Tage
+nw_bis = heute + datetime.timedelta(days=14)  # nächste Woche: +14 Tage
 
 spielorte_text = []
 spielorte_url = []
@@ -425,7 +436,8 @@ for idx in df.index:
     team = df.loc[idx, "Team"]
     heim = str(df.loc[idx, "Heim"])
     is_ad_team = team[0] in "ABCD"
-    in_naechste_kw = in_zeitfenster(str(df.loc[idx, "Datum"]))
+    # Spielort für aktuelle + nächste Woche abrufen (letzte Woche: Spiel bereits gelaufen)
+    in_naechste_kw = in_zeitfenster(str(df.loc[idx, "Datum"]), cw_von, nw_bis)
     if is_ad_team and in_naechste_kw:
         print(f"Lade Spielort für {team}: {df.loc[idx, 'Spiel']}")
         adresse, maps_url = get_spielort(df.loc[idx, "Spiel"])
@@ -451,47 +463,52 @@ S_BADGE_AUSW = 'class="abi-badge-ausw"'
 S_TITEL = 'style="font-size:15px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
-print(f"Generiere Aktuelle_Spiele.html ({heute} – {bis})")
-kw_data = df[df["Datum"].apply(in_zeitfenster)].copy()
-kw_data["_sort_datetime"] = pd.to_datetime(
-    kw_data["Datum"] + " " + kw_data["Zeit"],
-    format="%d.%m.%y %H:%M"
-)
-kw_data = kw_data.sort_values(by="_sort_datetime")
-kw_data["Heim"] = kw_data["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
-kw_data["Gast"] = kw_data["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum"):
+    """Erzeugt eine HTML-Spieltabelle für den gegebenen Zeitraum."""
+    filtered = data[data["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))].copy()
+    if not filtered.empty:
+        filtered["_sort_datetime"] = pd.to_datetime(
+            filtered["Datum"] + " " + filtered["Zeit"],
+            format="%d.%m.%y %H:%M"
+        )
+        filtered = filtered.sort_values(by="_sort_datetime")
+    filtered["Heim"] = filtered["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+    filtered["Gast"] = filtered["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
 
-rows_html = ""
-for row_num, ind in enumerate(kw_data.index):
-    heim = kw_data["Heim"][ind].replace("\u200b", "")
-    gast = kw_data["Gast"][ind].replace("\u200b", "")
-    is_heimspiel = heim == ABI_TEAM
-    badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
-    if is_heimspiel:
-        heim_text = f"{heim} {kw_data['Team'][ind]}"
-        gast_text = gast if len(gast) < 44 else f"{gast[:45]}..."
-    else:
-        heim_text = heim if len(heim) < 44 else f"{heim[:45]}..."
-        gast_text = f"{gast} {kw_data['Team'][ind]}"
-    spiellink = kw_data["Spiel"][ind]
-    datum = kw_data["Datum"][ind]
-    zeit = kw_data["Zeit"][ind].strip()
-    spiel_text = f'<a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
-    spielort_text = kw_data["Spielort"][ind]
-    spielort_url = kw_data["Spielort_URL"][ind]
-    if isinstance(spielort_url, str) and spielort_url:
-        spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
-    tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
-    rows_html += f"""    <tr{tr_bg}>
-      <td {S_TD_DATE}>{datum} | {zeit}<br>{badge}</td>
-      <td {S_TD}>{kw_data["Team"][ind]}</td>
+    rows_html = ""
+    for row_num, ind in enumerate(filtered.index):
+        heim = filtered["Heim"][ind].replace("\u200b", "")
+        gast = filtered["Gast"][ind].replace("\u200b", "")
+        is_heimspiel = heim == ABI_TEAM
+        badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
+        if is_heimspiel:
+            heim_text = f"{heim} {filtered['Team'][ind]}"
+            gast_text = gast if len(gast) < 44 else f"{gast[:45]}..."
+        else:
+            heim_text = heim if len(heim) < 44 else f"{heim[:45]}..."
+            gast_text = f"{gast} {filtered['Team'][ind]}"
+        spiellink = filtered["Spiel"][ind]
+        datum_str = filtered["Datum"][ind]
+        zeit = filtered["Zeit"][ind].strip()
+        spiel_text = f'<a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
+        spielort_text = filtered["Spielort"][ind]
+        spielort_url = filtered["Spielort_URL"][ind]
+        if isinstance(spielort_url, str) and spielort_url:
+            spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
+        tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
+        rows_html += f"""    <tr{tr_bg}>
+      <td {S_TD_DATE}>{datum_str} | {zeit}<br>{badge}</td>
+      <td {S_TD}>{filtered["Team"][ind]}</td>
       <td {S_TD}>{spiel_text}</td>
     </tr>\n"""
 
-stand = heute.strftime("%d.%m.%Y")
-aktuelle_spiele_html = f"""<!-- ABI Aktuelle Spiele -->
+    if not rows_html:
+        rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">{leer_text} ({von.strftime("%d.%m.")} – {bis.strftime("%d.%m.")})</td></tr>\n'
+
+    stand = heute.strftime("%d.%m.%Y")
+    return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
-  <div {S_TITEL}>⚽ Aktuelle Spiele ({heute.strftime('%d.%m.')} – {bis.strftime('%d.%m.%y')})</div>
+  <div {S_TITEL}>{titel}</div>
   <table {S_TABLE}>
     <thead>
       <tr {S_THEAD_TR}>
@@ -506,10 +523,61 @@ aktuelle_spiele_html = f"""<!-- ABI Aktuelle Spiele -->
   <p {S_QUELLE}>Stand: {stand}</p>
 </div>"""
 
+
+# Letzte Woche
+print(f"Generiere last_week.html ({lw_von} – {lw_bis})")
+last_week_html = build_spiele_html(
+    df, lw_von, lw_bis,
+    titel=f"⚽ Letzte Woche ({lw_von.strftime('%d.%m.')} – {lw_bis.strftime('%d.%m.%y')})",
+    leer_text="Keine Spiele in der letzten Woche"
+)
+with open("last_week.html", "w", encoding="utf-8") as f:
+    f.write(last_week_html)
+print("last_week.html gespeichert")
+generated_html_files.append("last_week.html")
+
+# Diese Woche (= bisherige Aktuelle_Spiele.html)
+print(f"Generiere current_week.html ({cw_von} – {cw_bis})")
+current_week_html = build_spiele_html(
+    df, cw_von, cw_bis,
+    titel=f"⚽ Diese Woche ({cw_von.strftime('%d.%m.')} – {cw_bis.strftime('%d.%m.%y')})",
+    leer_text="Keine Spiele diese Woche"
+)
+with open("current_week.html", "w", encoding="utf-8") as f:
+    f.write(current_week_html)
+print("current_week.html gespeichert")
+generated_html_files.append("current_week.html")
+
+# Rückwärtskompatibilität: Aktuelle_Spiele.html = current_week.html
 with open("Aktuelle_Spiele.html", "w", encoding="utf-8") as f:
-    f.write(aktuelle_spiele_html)
-print("Aktuelle_Spiele.html gespeichert")
+    f.write(current_week_html)
+print("Aktuelle_Spiele.html gespeichert (= current_week.html)")
 generated_html_files.append("Aktuelle_Spiele.html")
+
+# Nächste Woche
+print(f"Generiere next_week.html ({nw_von} – {nw_bis})")
+next_week_html = build_spiele_html(
+    df, nw_von, nw_bis,
+    titel=f"⚽ Nächste Woche ({nw_von.strftime('%d.%m.')} – {nw_bis.strftime('%d.%m.%y')})",
+    leer_text="Keine Spiele nächste Woche"
+)
+with open("next_week.html", "w", encoding="utf-8") as f:
+    f.write(next_week_html)
+print("next_week.html gespeichert")
+generated_html_files.append("next_week.html")
+
+# kw_data für per-Team-Widgets (aktuelle Woche)
+kw_data = df[df["Datum"].apply(lambda d: in_zeitfenster(d, cw_von, cw_bis))].copy()
+if not kw_data.empty:
+    kw_data["_sort_datetime"] = pd.to_datetime(
+        kw_data["Datum"] + " " + kw_data["Zeit"],
+        format="%d.%m.%y %H:%M"
+    )
+    kw_data = kw_data.sort_values(by="_sort_datetime")
+kw_data["Heim"] = kw_data["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+kw_data["Gast"] = kw_data["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+
+aktuelle_spiele_html = current_week_html
 
 with open("komplett_abi.html", "w", encoding="utf-8") as f:
     f.write(aktuelle_spiele_html + "\n\n" + alle_teams_html)
@@ -602,4 +670,4 @@ for _, row in ad_teams.iterrows():
         f.write(spiele_html + liga_html)
     print(f"{filename} gespeichert")
 
-sftp_upload(generated_html_files)  # lädt nur alle_teams.html, Aktuelle_Spiele.html, komplett_abi.html
+sftp_upload(generated_html_files)  # alle_teams, last_week, current_week, Aktuelle_Spiele, next_week
