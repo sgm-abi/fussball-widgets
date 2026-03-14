@@ -70,16 +70,23 @@ def sftp_upload(local_files: list, kw_current: int, kw_prev: int):
             sftp.put("current_week.html", f"{remote}/{kw_current_filename}")
             print(f"  ✅ current_week.html → {remote}/{kw_current_filename}")
 
-        # 3. spiele_KW{kw_prev}.html vom Server lesen → als last_week.html hochladen
+        # 3. last_week.html befüllen:
+        #    Sa/So: aktuelle KW direkt verwenden (Spiele laufen/gerade gespielt)
+        #    Mo–Fr: Vorwoche-Datei vom Server lesen
         kw_prev_filename = f"spiele_KW{kw_prev}.html"
-        try:
-            buf = io.BytesIO()
-            sftp.getfo(f"{remote}/{kw_prev_filename}", buf)
-            buf.seek(0)
-            sftp.putfo(buf, f"{remote}/last_week.html")
-            print(f"  ✅ {kw_prev_filename} (Server) → last_week.html")
-        except Exception as e:
-            print(f"  ⚠️  {kw_prev_filename} nicht gefunden – last_week.html bleibt leer ({e})")
+        if heute.weekday() >= 5:  # 5=Samstag, 6=Sonntag
+            if os.path.exists("current_week.html"):
+                sftp.put("current_week.html", f"{remote}/last_week.html")
+                print(f"  ✅ current_week.html → last_week.html (Wochenende, KW{kw_current})")
+        else:
+            try:
+                buf = io.BytesIO()
+                sftp.getfo(f"{remote}/{kw_prev_filename}", buf)
+                buf.seek(0)
+                sftp.putfo(buf, f"{remote}/last_week.html")
+                print(f"  ✅ {kw_prev_filename} (Server) → last_week.html")
+            except Exception as e:
+                print(f"  ⚠️  {kw_prev_filename} nicht gefunden – last_week.html bleibt leer ({e})")
 
         sftp.close()
     finally:
