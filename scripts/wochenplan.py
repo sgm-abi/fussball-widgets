@@ -458,6 +458,7 @@ def get_spielort(spiel_url):
 
 # Datum parsen
 heute = datetime.date.today()
+jetzt_str = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
 
 def parse_datum(datum_str):
     try:
@@ -553,7 +554,6 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
     if not rows_html:
         rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">{leer_text} ({von.strftime("%d.%m.")} – {bis.strftime("%d.%m.")})</td></tr>\n'
 
-    stand = heute.strftime("%d.%m.%Y")
     return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
   <div {S_TITEL}>{titel}</div>
@@ -568,7 +568,7 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
     <tbody>
 {rows_html}    </tbody>
   </table>
-  <p {S_QUELLE}>Stand: {stand}</p>
+  <p {S_QUELLE}>Stand: {jetzt_str}</p>
 </div>"""
 
 
@@ -710,7 +710,7 @@ for _, row in ad_teams.iterrows():
     <tbody>
 {team_rows_html}    </tbody>
   </table>
-  <p {S_QUELLE}>Stand: {heute.strftime("%d.%m.%Y")}</p>
+  <p {S_QUELLE}>Stand: {jetzt_str}</p>
 </div>"""
 
     # Volle Ligatabelle
@@ -734,7 +734,7 @@ for _, row in ad_teams.iterrows():
     <tbody>
 {liga_rows}    </tbody>
   </table>
-  <p {S_QUELLE}><a href="https://www.fussball.de" target="_blank">fussball.de</a> &nbsp;|&nbsp; Stand: {heute.strftime("%d.%m.%Y, %H:%M Uhr")}</p>
+  <p {S_QUELLE}><a href="https://www.fussball.de" target="_blank">fussball.de</a> &nbsp;|&nbsp; Stand: {jetzt_str}</p>
 </div>"""
 
     filename = f"komplett_{tname.replace('/', '-').replace(' ', '_')}.html"
