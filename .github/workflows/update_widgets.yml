@@ -11,6 +11,8 @@ on:
 jobs:
   update-widgets:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Erlaubt dem Bot, KW-Archivdateien ins Repo zu pushen
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
