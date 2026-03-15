@@ -67,34 +67,32 @@ def sftp_upload(local_files: list, kw_current: int, kw_prev: int, kw_filename: s
             sftp.put(local_path, f"{remote}/{filename}")
             print(f"  ✅ {filename} → {remote}/{filename}")
 
-        # 2. KW-Archivdatei hochladen (echte Mo–So Grenzen)
-        if os.path.exists(kw_filename):
-            sftp.put(kw_filename, f"{remote}/{kw_filename}")
-            print(f"  ✅ {kw_filename} → {remote}/{kw_filename}")
+        # 2. KW-Archivdateien hochladen (alle lokal vorhandenen spiele_KW*.html)
+        for delta in range(3):
+            ref_tag   = heute + datetime.timedelta(weeks=delta)
+            kw_n      = ref_tag.isocalendar()[1]
+            kw_n_file = f"spiele_KW{kw_n}.html"
+            if os.path.exists(kw_n_file):
+                sftp.put(kw_n_file, f"{remote}/{kw_n_file}")
+                print(f"  ✅ {kw_n_file} → {remote}/{kw_n_file}")
 
-        # 3. last_week.html befüllen
-        kw_prev_filename = f"spiele_KW{kw_prev}.html"
-        if heute.weekday() >= 5:  # Sa=5, So=6: aktuelle KW zeigen
-            if os.path.exists(kw_filename):
-                sftp.put(kw_filename, f"{remote}/last_week.html")
-                print(f"  ✅ {kw_filename} → last_week.html (Wochenende)")
-        else:  # Mo–Fr: Vorwoche vom Server lesen
-            try:
-                buf = io.BytesIO()
-                sftp.getfo(f"{remote}/{kw_prev_filename}", buf)
-                buf.seek(0)
-                sftp.putfo(buf, f"{remote}/last_week.html")
-                print(f"  ✅ {kw_prev_filename} (Server) → last_week.html")
-            except Exception as e:
-                print(f"  ⚠️  {kw_prev_filename} nicht gefunden – last_week.html bleibt leer ({e})")
+        # 3. last_week.html: lokal aus Repo lesen
+        #    Sa/So → spiele_KW{current} (Woche läuft/ist fertig)
+        #    Mo–Fr → spiele_KW{prev}
+        kw_for_last = kw_filename if heute.weekday() >= 5 else f"spiele_KW{kw_prev}.html"
+        if os.path.exists(kw_for_last):
+            sftp.put(kw_for_last, f"{remote}/last_week.html")
+            print(f"  ✅ {kw_for_last} → last_week.html")
+        else:
+            print(f"  ⚠️  {kw_for_last} nicht vorhanden – last_week.html bleibt leer")
 
-        # 4. Alte KW-Datei löschen (2 Wochen alt, nicht mehr benötigt)
-        kw_old_filename = f"spiele_KW{kw_current - 2}.html"
+        # 4. Alte KW-Datei auf SFTP löschen (älter als 2 Wochen)
+        kw_old_file = f"spiele_KW{kw_current - 2}.html"
         try:
-            sftp.remove(f"{remote}/{kw_old_filename}")
-            print(f"  🗑️  {kw_old_filename} gelöscht")
+            sftp.remove(f"{remote}/{kw_old_file}")
+            print(f"  🗑️  {kw_old_file} vom Server gelöscht")
         except Exception:
-            pass  # Datei existiert nicht – kein Problem
+            pass  # existiert nicht – kein Problem
 
         sftp.close()
     finally:
@@ -566,24 +564,37 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 </div>"""
 
 
-# KW-Nummern und echte Kalenderwochengrenzen (Mo–So)
+# KW-Nummern
 kw_current = heute.isocalendar()[1]
-kw_prev = (heute - datetime.timedelta(weeks=1)).isocalendar()[1]
-kw_start = heute - datetime.timedelta(days=heute.weekday())   # dieser Montag
-kw_end   = kw_start + datetime.timedelta(days=6)              # dieser Sonntag
-print(f"KW{kw_current}: {kw_start} – {kw_end}, Vorwoche: KW{kw_prev}")
+kw_prev    = (heute - datetime.timedelta(weeks=1)).isocalendar()[1]
+kw_start   = heute - datetime.timedelta(days=heute.weekday())  # dieser Montag
 
-# KW-Archivdatei: nur Spiele innerhalb der echten Kalenderwoche (Mo–So)
-kw_filename = f"spiele_KW{kw_current}.html"
-print(f"Generiere {kw_filename} ({kw_start} – {kw_end})")
-kw_archiv_html = build_spiele_html(
-    df, kw_start, kw_end,
-    titel=f"⚽ KW{kw_current} ({kw_start.strftime('%d.%m.')} – {kw_end.strftime('%d.%m.%y')})",
-    leer_text=f"Keine Spiele in KW{kw_current}"
-)
-with open(kw_filename, "w", encoding="utf-8") as f:
-    f.write(kw_archiv_html)
-print(f"{kw_filename} gespeichert")
+# KW-Archivdateien für aktuelle + nächste 2 Wochen generieren
+# Regel: Hat die KW bereits begonnen UND die Datei existiert schon → einfrieren
+kw_filename = f"spiele_KW{kw_current}.html"  # wird unten für SFTP benötigt
+
+for delta in range(3):  # KW+0, KW+1, KW+2
+    ref_tag    = heute + datetime.timedelta(weeks=delta)
+    kw_n       = ref_tag.isocalendar()[1]
+    kw_n_start = ref_tag - datetime.timedelta(days=ref_tag.weekday())
+    kw_n_end   = kw_n_start + datetime.timedelta(days=6)
+    kw_n_file  = f"spiele_KW{kw_n}.html"
+
+    woche_hat_begonnen = kw_n_start <= heute
+
+    if woche_hat_begonnen and os.path.exists(kw_n_file):
+        print(f"  ❄️  {kw_n_file} eingefroren – KW{kw_n} läuft bereits, wird nicht überschrieben")
+        continue
+
+    print(f"  📝 Generiere {kw_n_file} ({kw_n_start} – {kw_n_end})")
+    html = build_spiele_html(
+        df, kw_n_start, kw_n_end,
+        titel=f"⚽ KW{kw_n} ({kw_n_start.strftime('%d.%m.')} – {kw_n_end.strftime('%d.%m.%y')})",
+        leer_text=f"Keine Spiele in KW{kw_n}"
+    )
+    with open(kw_n_file, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"  ✅ {kw_n_file} gespeichert")
 
 # Diese Woche (= bisherige Aktuelle_Spiele.html)
 print(f"Generiere current_week.html ({cw_von} – {cw_bis})")

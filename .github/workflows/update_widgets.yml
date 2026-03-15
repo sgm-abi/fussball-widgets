@@ -42,3 +42,11 @@ jobs:
           SFTP_PASS: ${{ secrets.SFTP_PASS }}
           SFTP_REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
         run: cd scripts && python Extract_table_from_fussball.py
+
+      - name: KW-Archivdateien ins Repo committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/spiele_KW*.html
+          git diff --cached --quiet || git commit -m "KW-Archiv aktualisiert [skip ci]"
+          git push
