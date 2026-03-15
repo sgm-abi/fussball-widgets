@@ -6,32 +6,24 @@ Scrapt von fussball.de:
   1. Nächste Spiele der SGM ABI (mehrere Teams)
   2. Aktuelle Ligatabelle (mit Hervorhebung von ABI)
 
-Gibt HTML-Snippets aus, die einzeln oder kombiniert in WordPress
-(„Benutzerdefinierter HTML"-Block) eingefügt werden können.
-
-Verwendung:
-    python fussball_widget_scraper.py
-
-Ausgabe:
-    komplett_C.html  – C-Junioren: Spielplan + Tabelle
-    komplett_B.html  – B-Junioren: Spielplan + Tabelle
+Lädt die fertigen HTML-Dateien per SFTP auf IONOS hoch.
+Zugangsdaten werden aus Umgebungsvariablen gelesen (GitHub Secrets).
 
 Abhängigkeiten:
-    pip install requests beautifulsoup4
-
-Automatisierung (Linux-Cron, täglich 3 Uhr):
-    0 3 * * * /usr/bin/python3 /pfad/zu/fussball_widget_scraper.py
+    pip install requests beautifulsoup4 paramiko
 """
 
+import os
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import re
 import html as html_module
+import paramiko
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 
-# Team-Konfigurationen – TEAM_ID aus Spiele_Links.csv URL
 TEAMS = [
     {
         "name": "A-Junioren ABI",
@@ -58,12 +50,43 @@ TEAMS = [
         "team_id": "011MIBO1P0000000VTVG0001VTR8C1K7",
         "output": "komplett_D2.html",
     },
+    {
+        "name": "B-Juniorinnen ABI",
+        "team_id": "02F0RK819O000000VS5489B2VUBVHUE0",
+        "output": "komplett_B-J-innen.html",
+    },
+    {
+        "name": "C-Juniorinnen ABI",
+        "team_id": "011MIAPVRC000000VTVG0001VTR8C1K7",
+        "output": "komplett_C-J-innen.html",
+    },
+    {
+        "name": "D-Juniorinnen ABI",
+        "team_id": "011MIB7H8C000000VTVG0001VTR8C1K7",
+        "output": "komplett_D-J-innen.html",
+    },
 ]
 
 SAISON = "2526"
-
-MAX_SPIELE = 5  # Wie viele nächste Spiele anzeigen?
+MAX_SPIELE = 5
 OUR_TEAM_FRAGMENT = "ABI"
+ABI_TEAM = "SGM ABI"
+ABI_TEAM_REGEX = r"SGM.*ABI.*"
+
+# SFTP-Konfiguration – Werte kommen aus Umgebungsvariablen (GitHub Secrets)
+SFTP_HOST = os.environ.get("SFTP_HOST", "home680099039.1and1-data.host")
+SFTP_PORT = int(os.environ.get("SFTP_PORT", "22"))
+SFTP_USER = os.environ.get("SFTP_USER", "u89169696")
+SFTP_PASS = os.environ.get("SFTP_PASS", "")
+
+# Zielverzeichnis auf dem IONOS-Server (Pfad anpassen!)
+# Typischer IONOS-Pfad: /var/www/vhosts/deinedomain.de/httpdocs/abi-widgets/
+SFTP_REMOTE_DIR = os.environ.get("SFTP_REMOTE_DIR", "/abi-widgets/")
+
+# Verzeichnis für generierte HTML-Dateien (versioniert im Repo unter htmls/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HTML_DIR = os.path.join(SCRIPT_DIR, "..", "htmls")
+os.makedirs(HTML_DIR, exist_ok=True)
 
 HEADERS = {
     "User-Agent": (
@@ -122,7 +145,6 @@ SHARED_CSS = """
 }
 .abi-table a:hover { text-decoration: underline; }
 
-/* Heim/Auswärts-Badge */
 .abi-badge {
   display: inline-block;
   padding: 1px 5px;
@@ -133,14 +155,12 @@ SHARED_CSS = """
 .abi-badge-heim { background: #cfe2ff; color: #0c3780; }
 .abi-badge-ausw { background: #fff3cd; color: #856404; }
 
-/* Hervorhebung unseres Teams */
 .abi-unser-team {
   background-color: #e8f1fb !important;
   font-weight: bold;
 }
 .abi-unser-team td { color: #1159af; }
 
-/* Tabellenplatz-Badge */
 .abi-platz-badge {
   display: inline-block;
   min-width: 24px;
@@ -160,7 +180,6 @@ SHARED_CSS = """
   text-align: right;
 }
 
-/* ── Responsive / Mobil ── */
 .abi-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -169,11 +188,9 @@ SHARED_CSS = """
   .abi-widget { font-size: 0.82em; }
   .abi-table thead th,
   .abi-table tbody td { padding: 4px 5px; }
-  /* Ligatabelle: G/U/V ausblenden */
   .abi-table .col-g,
   .abi-table .col-u,
   .abi-table .col-v { display: none; }
-  /* Nächste Spiele: Trennstrich-Spalte ausblenden */
   .abi-table .col-sep { display: none; }
 }
 </style>
@@ -189,7 +206,7 @@ def fetch(url: str) -> str:
 
 
 def jetzt() -> str:
-    return datetime.now().strftime("%d.%m.%Y, %H:%M Uhr")
+    return datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
 
 
 # ── Spielplan ─────────────────────────────────────────────────────────────────
@@ -210,7 +227,6 @@ def parse_spiele(raw_html: str, max_spiele: int) -> list[dict]:
             r"(Mo|Di|Mi|Do|Fr|Sa|So),\s+\d{2}\.\d{2}\.\d{2}", cell_text[0]
         ):
             current_datum = cell_text[0]
-            # Zeit-Zelle per Muster suchen (HH:MM), unabhängig von der Spaltenreihenfolge
             current_zeit = next(
                 (t for t in cell_text[1:] if re.match(r"\d{1,2}:\d{2}$", t)), ""
             )
@@ -218,8 +234,8 @@ def parse_spiele(raw_html: str, max_spiele: int) -> list[dict]:
 
         links = row.find_all("a", href=re.compile(r"/mannschaft/"))
         if len(links) >= 2 and current_datum:
-            heim = re.sub(r"SGM.*ABI.*", "SGM ABI", links[0].get_text(strip=True))
-            gast = re.sub(r"SGM.*ABI.*", "SGM ABI", links[1].get_text(strip=True))
+            heim = re.sub(ABI_TEAM_REGEX, ABI_TEAM, links[0].get_text(strip=True))
+            gast = re.sub(ABI_TEAM_REGEX, ABI_TEAM, links[1].get_text(strip=True))
             spiel_tag = row.find("a", href=re.compile(r"/spiel/"))
             link = spiel_tag["href"] if spiel_tag else "#"
             if link.startswith("/"):
@@ -243,7 +259,6 @@ def parse_spiele(raw_html: str, max_spiele: int) -> list[dict]:
 
 
 def get_staffel_id(team_id: str) -> str:
-    """Staffel-ID für ein Team aus der fussball.de AJAX-Antwort ermitteln."""
     try:
         url = f"https://www.fussball.de/ajax.team.next.games/-/mode/PAGE/team-id/{team_id}"
         raw = fetch(url)
@@ -275,7 +290,6 @@ def render_spiele(spiele: list[dict], team_name: str, team_id: str) -> str:
       <td>{h(sp['gast'])}</td>
       <td><a href="{sp['link']}" target="_blank" rel="noopener">➜</a></td>
     </tr>"""
-
     return f"""<!-- ABI Nächste Spiele Widget -->
 <div class="abi-widget">
   <div class="abi-widget-titel">⚽ Nächste Spiele – {html_module.escape(team_name)}</div>
@@ -300,6 +314,65 @@ def render_spiele(spiele: list[dict], team_name: str, team_id: str) -> str:
 <!-- Ende Nächste Spiele -->"""
 
 
+def render_spiele_kombiniert(spiele_liste: list[tuple]) -> str:
+    """spiele_liste: [(label, spiele), ...] – werden nach Datum sortiert, max_spiele genommen."""
+    alle = []
+    for label, spiele in spiele_liste:
+        for sp in spiele:
+            alle.append((label, sp))
+
+    def sort_key(item):
+        label, sp = item
+        datum = sp.get("datum", "")  # z.B. "Sa, 14.03.26 |12:30"
+        try:
+            teil = datum.split(", ", 1)[1] if ", " in datum else datum
+            date_str = teil.strip().split(" ")[0]  # "14.03.26"
+            d, m, y = date_str.split(".")
+            zeit = teil.split("|")[1].strip() if "|" in teil else "00:00"
+            return (int("20" + y), int(m), int(d), zeit, label)
+        except Exception:
+            return (9999, 99, 99, "00:00", label)
+
+    alle.sort(key=sort_key)
+
+    rows = ""
+    h = html_module.escape
+    for label, sp in alle:
+        badge = (
+            '<span class="abi-badge abi-badge-heim">Heim</span>'
+            if sp["heimspiel"]
+            else '<span class="abi-badge abi-badge-ausw">Auswärts</span>'
+        )
+        rows += f"""
+    <tr>
+      <td style="white-space:nowrap">{h(sp['datum'])}<br>{badge}</td>
+      <td style="white-space:nowrap;font-weight:bold;color:#1159af">{label}</td>
+      <td>{h(sp['heim'])}</td>
+      <td class="col-sep" style="text-align:center;color:#aaa">–</td>
+      <td>{h(sp['gast'])}</td>
+      <td><a href="{sp['link']}" target="_blank" rel="noopener">➜</a></td>
+    </tr>"""
+    return f"""<!-- ABI Nächste Spiele Widget -->
+<div class="abi-widget">
+  <div class="abi-widget-titel">⚽ Nächste Spiele – D-Junioren</div>
+  <div class="abi-table-wrap">
+  <table class="abi-table">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Team</th>
+        <th>Heimteam</th><th class="col-sep"></th><th>Gastteam</th><th></th>
+      </tr>
+    </thead>
+    <tbody>{rows}
+    </tbody>
+  </table>
+  </div>
+  <p class="abi-quelle">Stand: {jetzt()}</p>
+</div>
+<!-- Ende Nächste Spiele -->\n"""
+
+
 # ── Tabelle ───────────────────────────────────────────────────────────────────
 
 
@@ -310,21 +383,19 @@ def parse_tabelle(raw_html: str) -> list[dict]:
         return []
 
     eintraege = []
-    for row in table.find_all("tr")[1:]:  # erste Zeile = Header
+    for row in table.find_all("tr")[1:]:
         cells = row.find_all("td")
         if len(cells) < 9:
             continue
 
-        # Platz steht in cells[1], Mannschaft in cells[2] (mit Link), etc.
         platz = cells[1].get_text(strip=True).rstrip(".")
         team_tag = cells[2].find("a")
         if not team_tag:
             continue
-        # Teamname steht doppelt im Text (einmal kurz, einmal lang) – wir nehmen den letzten Teil
         full_text = cells[2].get_text(" ", strip=True)
-        # fussball.de wiederholt den Namen: "SC Amorbach I  SC Amorbach I" → splitten
         parts = full_text.split("  ")
         team = parts[-1].strip() if len(parts) > 1 else full_text.strip()
+        team = re.sub(ABI_TEAM_REGEX, ABI_TEAM, team)
 
         spiele = cells[3].get_text(strip=True)
         siege = cells[4].get_text(strip=True)
@@ -408,6 +479,42 @@ def render_tabelle(eintraege: list[dict], staffel_name: str, staffel_id: str) ->
 <!-- Ende Ligatabelle -->"""
 
 
+# ── SFTP-Upload ────────────────────────────────────────────────────────────────
+
+
+def sftp_upload(local_files: list[str]):
+    """Lädt alle lokalen HTML-Dateien per SFTP auf IONOS hoch."""
+    if not SFTP_PASS:
+        print("⚠️  SFTP_PASS nicht gesetzt – Upload übersprungen")
+        return
+
+    print(f"\n📤 SFTP-Upload nach {SFTP_HOST}{SFTP_REMOTE_DIR} …")
+    transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+    try:
+        transport.connect(username=SFTP_USER, password=SFTP_PASS)
+        sftp = paramiko.SFTPClient.from_transport(transport)
+
+        # Verzeichnis anlegen falls nicht vorhanden (Fehler ignorieren wenn schon da)
+        try:
+            sftp.mkdir(SFTP_REMOTE_DIR)
+            print(f"  📁 Verzeichnis angelegt: {SFTP_REMOTE_DIR}")
+        except Exception:
+            pass  # Ordner existiert bereits – alles gut
+
+        for local_path in local_files:
+            filename = os.path.basename(local_path)
+            remote_path = SFTP_REMOTE_DIR.rstrip("/") + "/" + filename
+            print(f"  → Versuche Upload: {remote_path}")
+            sftp.put(local_path, remote_path)
+            print(f"  ✅ Hochgeladen: {filename} → {remote_path}")
+
+        sftp.close()
+    finally:
+        transport.close()
+
+    print("📤 Upload abgeschlossen\n")
+
+
 # ── Hauptprogramm ──────────────────────────────────────────────────────────────
 
 
@@ -416,28 +523,30 @@ def main():
 
     stand_kommentar = f"<!-- Generiert: {jetzt()} -->\n"
     saved_files = []
+    d_roh = {}      # {team_name: (spiele_liste, html_tabelle)}
 
     for team in TEAMS:
         team_id = team["team_id"]
         team_name = team["name"]
-        output_file = team["output"]
+        output_file = os.path.join(HTML_DIR, team["output"])
 
         print(f"── {team_name} ──────────────────────────────────────────────────")
 
-        # --- Staffel-ID dynamisch ermitteln ---
         print("  → Ermittle Staffel-ID …")
         staffel_id = get_staffel_id(team_id)
         if staffel_id:
             print(f"     ✅ Staffel-ID: {staffel_id}")
         else:
-            print("     ⚠️  Staffel-ID nicht gefunden, Tabellenlink wird generisch")
+            print("     ⚠️  Staffel-ID nicht gefunden")
 
-        # --- Spielplan ---
         print("  → Nächste Spiele …")
+        spiele = []
+        ist_d_team = team_name.startswith("D1") or team_name.startswith("D2")
+        spiele_limit = 3 if ist_d_team else MAX_SPIELE
         try:
             url_next = f"https://www.fussball.de/ajax.team.next.games/-/mode/PAGE/team-id/{team_id}"
             raw_spiele = fetch(url_next)
-            spiele = parse_spiele(raw_spiele, MAX_SPIELE)
+            spiele = parse_spiele(raw_spiele, spiele_limit)
             if spiele:
                 print(f"     ✅ {len(spiele)} Spiel(e) gefunden")
                 for sp in spiele:
@@ -450,7 +559,6 @@ def main():
             print(f"     ❌ Fehler: {e}")
             html_spiele = ""
 
-        # --- Tabelle ---
         print("  → Ligatabelle …")
         try:
             url_table = (
@@ -473,16 +581,42 @@ def main():
             print(f"     ❌ Fehler: {e}")
             html_tabelle = ""
 
-        # --- Datei schreiben ---
         with open(output_file, "w", encoding="utf-8") as f:
-            f.write(stand_kommentar + SHARED_CSS + "\n" + html_spiele + "\n" + html_tabelle)
+            f.write(
+                stand_kommentar + SHARED_CSS + "\n" + html_spiele + "\n" + html_tabelle
+            )
         saved_files.append(output_file)
         print(f"  💾 Gespeichert: {output_file}\n")
+
+        if team_name.startswith("D1") or team_name.startswith("D2"):
+            d_roh[team_name] = (spiele, html_tabelle)
+
+    # Kombiniertes D-Junioren Widget (D1 + D2)
+    if len(d_roh) == 2:
+        d1_name = next(n for n in d_roh if "D1" in n)
+        d2_name = next(n for n in d_roh if "D2" in n)
+        html_spiele_komb = render_spiele_kombiniert([
+            ("D1", d_roh[d1_name][0]),
+            ("D2", d_roh[d2_name][0]),
+        ])
+        komplett_d = (
+            stand_kommentar + SHARED_CSS + "\n"
+            + html_spiele_komb + "\n"
+            + d_roh[d1_name][1] + "\n"
+            + d_roh[d2_name][1]
+        )
+        komplett_d_path = os.path.join(HTML_DIR, "komplett_D.html")
+        with open(komplett_d_path, "w", encoding="utf-8") as f:
+            f.write(komplett_d)
+        saved_files.append(komplett_d_path)
+        print("  💾 Gespeichert: komplett_D.html\n")
+
+    # SFTP-Upload aller generierten Dateien
+    sftp_upload(saved_files)
 
     print("─── Fertig ──────────────────────────────────────────────────────────")
     for fname in saved_files:
         print(f"   {fname}")
-    print("\nJede Datei kann als Inhalt eines 'Benutzerdefinierter HTML'-Blocks in WordPress eingefügt werden.")
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ jobs:
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_PASS: ${{ secrets.SFTP_PASS }}
           SFTP_REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
-        run: python scripts/fussball_widget_scraper.py
+        run: python scripts/widget_pro_team.py
 
       - name: Startseite generieren und hochladen
         env:
@@ -42,7 +42,7 @@ jobs:
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_PASS: ${{ secrets.SFTP_PASS }}
           SFTP_REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
-        run: cd scripts && python Extract_table_from_fussball.py
+        run: python scripts/wochenplan.py
 
       - name: KW-Archivdateien ins Repo committen
         run: |

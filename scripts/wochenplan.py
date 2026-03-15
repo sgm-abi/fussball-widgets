@@ -182,8 +182,8 @@ def get_full_table_rows(staffel_id, team_id):
         return "", ""
 
 
-team_urls = pd.read_csv("Spiele_Links.csv")
-outfile = "All_games_from_fussball_de.csv"
+team_urls = pd.read_csv(os.path.join(SCRIPT_DIR, "Spiele_Links.csv"))
+outfile = os.path.join(SCRIPT_DIR, "All_games_from_fussball_de.csv")
 numOfGames = 0
 print(len(team_urls))
 
@@ -354,7 +354,7 @@ team_urls["Spiele"] = team_urls["team"].map(spiele_dict).fillna("")
 team_urls["Tore"] = team_urls["team"].map(tore_dict).fillna("")
 team_urls["Punkte"] = team_urls["team"].map(punkte_dict).fillna("")
 # Staffel wird NICHT überschrieben – manuell in Spiele_Links.csv pflegen
-team_urls.to_csv("Spiele_Links.csv", index=False)
+team_urls.to_csv(os.path.join(SCRIPT_DIR, "Spiele_Links.csv"), index=False)
 
 # Gesamtübersicht aller ABI-Teams gruppiert nach Kategorie (A/B/C/D × Junioren/Juniorinnen)
 def team_gruppe(name):
