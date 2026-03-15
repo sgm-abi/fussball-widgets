@@ -1,10 +1,8 @@
-# Generierte HTML-Ausgaben (werden per SFTP hochgeladen, nicht im Repo)
+# Generierte HTML-Ausgaben in scripts/ ignorieren (werden jetzt in htmls/ gespeichert)
 scripts/*.html
-scripts/komplett*.html
-scripts/alle_teams.html
-scripts/naechste_spiele.html
-scripts/ligatabelle.html
-scripts/Aktuelle_Spiele.html
+
+# htmls/ wird versioniert (KW-Archiv, wird per SFTP hochgeladen)
+# htmls/*.html  ← explizit NICHT ignoriert
 
 # Generierte CSV-Ausgaben
 scripts/All_games_from_fussball_de.csv

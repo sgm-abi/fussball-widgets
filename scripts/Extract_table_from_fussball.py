@@ -31,6 +31,11 @@ SFTP_USER = os.environ.get("SFTP_USER", "u89169696")
 SFTP_PASS = os.environ.get("SFTP_PASS", "")
 SFTP_REMOTE_DIR = os.environ.get("SFTP_REMOTE_DIR", "/abi-widgets/")
 
+# Verzeichnis für generierte HTML-Dateien (versioniert im Repo unter htmls/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HTML_DIR = os.path.join(SCRIPT_DIR, "..", "htmls")
+os.makedirs(HTML_DIR, exist_ok=True)
+
 
 def sftp_upload(local_files: list, kw_current: int, kw_prev: int, kw_filename: str):
     """Lädt HTML-Dateien per SFTP hoch und setzt KW-basierte Aliase.
@@ -72,16 +77,18 @@ def sftp_upload(local_files: list, kw_current: int, kw_prev: int, kw_filename: s
             ref_tag   = heute + datetime.timedelta(weeks=delta)
             kw_n      = ref_tag.isocalendar()[1]
             kw_n_file = f"spiele_KW{kw_n}.html"
-            if os.path.exists(kw_n_file):
-                sftp.put(kw_n_file, f"{remote}/{kw_n_file}")
+            kw_n_path = os.path.join(HTML_DIR, kw_n_file)
+            if os.path.exists(kw_n_path):
+                sftp.put(kw_n_path, f"{remote}/{kw_n_file}")
                 print(f"  ✅ {kw_n_file} → {remote}/{kw_n_file}")
 
         # 3. last_week.html: lokal aus Repo lesen
         #    Sa/So → spiele_KW{current} (Woche läuft/ist fertig)
         #    Mo–Fr → spiele_KW{prev}
         kw_for_last = kw_filename if heute.weekday() >= 5 else f"spiele_KW{kw_prev}.html"
-        if os.path.exists(kw_for_last):
-            sftp.put(kw_for_last, f"{remote}/last_week.html")
+        kw_for_last_path = os.path.join(HTML_DIR, kw_for_last)
+        if os.path.exists(kw_for_last_path):
+            sftp.put(kw_for_last_path, f"{remote}/last_week.html")
             print(f"  ✅ {kw_for_last} → last_week.html")
         else:
             print(f"  ⚠️  {kw_for_last} nicht vorhanden – last_week.html bleibt leer")
@@ -425,10 +432,11 @@ alle_teams_html = f"""<style>
 
 generated_html_files = []
 
-with open("alle_teams.html", "w", encoding="utf-8") as f:
+alle_teams_path = os.path.join(HTML_DIR, "alle_teams.html")
+with open(alle_teams_path, "w", encoding="utf-8") as f:
     f.write(alle_teams_html)
 print("alle_teams.html gespeichert")
-generated_html_files.append("alle_teams.html")
+generated_html_files.append(alle_teams_path)
 
 df = pd.read_csv(outfile, sep=",")
 
@@ -579,10 +587,11 @@ for delta in range(3):  # KW+0, KW+1, KW+2
     kw_n_start = ref_tag - datetime.timedelta(days=ref_tag.weekday())
     kw_n_end   = kw_n_start + datetime.timedelta(days=6)
     kw_n_file  = f"spiele_KW{kw_n}.html"
+    kw_n_path  = os.path.join(HTML_DIR, kw_n_file)
 
     woche_hat_begonnen = kw_n_start <= heute
 
-    if woche_hat_begonnen and os.path.exists(kw_n_file):
+    if woche_hat_begonnen and os.path.exists(kw_n_path):
         print(f"  ❄️  {kw_n_file} eingefroren – KW{kw_n} läuft bereits, wird nicht überschrieben")
         continue
 
@@ -592,7 +601,7 @@ for delta in range(3):  # KW+0, KW+1, KW+2
         titel=f"⚽ KW{kw_n} ({kw_n_start.strftime('%d.%m.')} – {kw_n_end.strftime('%d.%m.%y')})",
         leer_text=f"Keine Spiele in KW{kw_n}"
     )
-    with open(kw_n_file, "w", encoding="utf-8") as f:
+    with open(kw_n_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"  ✅ {kw_n_file} gespeichert")
 
@@ -603,16 +612,18 @@ current_week_html = build_spiele_html(
     titel=f"⚽ Diese Woche ({cw_von.strftime('%d.%m.')} – {cw_bis.strftime('%d.%m.%y')})",
     leer_text="Keine Spiele diese Woche"
 )
-with open("current_week.html", "w", encoding="utf-8") as f:
+current_week_path = os.path.join(HTML_DIR, "current_week.html")
+with open(current_week_path, "w", encoding="utf-8") as f:
     f.write(current_week_html)
 print("current_week.html gespeichert")
-generated_html_files.append("current_week.html")
+generated_html_files.append(current_week_path)
 
 # Rückwärtskompatibilität: Aktuelle_Spiele.html = current_week.html
-with open("Aktuelle_Spiele.html", "w", encoding="utf-8") as f:
+aktuelle_spiele_path = os.path.join(HTML_DIR, "Aktuelle_Spiele.html")
+with open(aktuelle_spiele_path, "w", encoding="utf-8") as f:
     f.write(current_week_html)
 print("Aktuelle_Spiele.html gespeichert (= current_week.html)")
-generated_html_files.append("Aktuelle_Spiele.html")
+generated_html_files.append(aktuelle_spiele_path)
 
 # Nächste Woche
 print(f"Generiere next_week.html ({nw_von} – {nw_bis})")
@@ -621,10 +632,11 @@ next_week_html = build_spiele_html(
     titel=f"⚽ Nächste Woche ({nw_von.strftime('%d.%m.')} – {nw_bis.strftime('%d.%m.%y')})",
     leer_text="Keine Spiele nächste Woche"
 )
-with open("next_week.html", "w", encoding="utf-8") as f:
+next_week_path = os.path.join(HTML_DIR, "next_week.html")
+with open(next_week_path, "w", encoding="utf-8") as f:
     f.write(next_week_html)
 print("next_week.html gespeichert")
-generated_html_files.append("next_week.html")
+generated_html_files.append(next_week_path)
 
 # kw_data für per-Team-Widgets (aktuelle Woche)
 kw_data = df[df["Datum"].apply(lambda d: in_zeitfenster(d, cw_von, cw_bis))].copy()
@@ -639,7 +651,7 @@ kw_data["Gast"] = kw_data["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
 
 aktuelle_spiele_html = current_week_html
 
-with open("komplett_abi.html", "w", encoding="utf-8") as f:
+with open(os.path.join(HTML_DIR, "komplett_abi.html"), "w", encoding="utf-8") as f:
     f.write(aktuelle_spiele_html + "\n\n" + alle_teams_html)
 print("komplett_abi.html gespeichert")
 
@@ -726,7 +738,8 @@ for _, row in ad_teams.iterrows():
 </div>"""
 
     filename = f"komplett_{tname.replace('/', '-').replace(' ', '_')}.html"
-    with open(filename, "w", encoding="utf-8") as f:
+    filepath = os.path.join(HTML_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(spiele_html + liga_html)
     print(f"{filename} gespeichert")
 
