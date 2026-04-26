@@ -456,6 +456,26 @@ def get_spielort(spiel_url):
         pass
     return "", ""
 
+
+def get_ergebnis(spiel_url):
+    """Endstand des Spiels von der fussball.de Spielseite holen. Gibt 'X:Y' oder '' zurück."""
+    try:
+        resp = requests.get(spiel_url, headers=HEADERS, timeout=10)
+        soup_spiel = BeautifulSoup(resp.text, HTML_PARSER)
+        title = soup_spiel.title.get_text() if soup_spiel.title else ""
+        m = re.search(r"\b(\d{1,2})\s*:\s*(\d{1,2})\b", title)
+        if m:
+            return f"{m.group(1)}:{m.group(2)}"
+        for cls_pattern in [r"score", r"ergebnis", r"result", r"spielstand"]:
+            el = soup_spiel.find(class_=re.compile(cls_pattern, re.I))
+            if el:
+                t = el.get_text(strip=True)
+                if re.match(r"^\d{1,2}:\d{1,2}$", t):
+                    return t
+    except Exception:
+        pass
+    return ""
+
 # Datum parsen
 heute = datetime.date.today()
 jetzt_str = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")

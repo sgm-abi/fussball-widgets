@@ -12,6 +12,7 @@ scripts/All_games_from_fussball_de.csv
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+.claude/
 notebooks/.ipynb_checkpoints/
 
 # Python
