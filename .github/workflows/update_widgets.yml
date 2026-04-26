@@ -5,7 +5,7 @@ on:
     # Täglich mindestens 12:30 Uhr Ortszeit
     # MEZ  (Winter, UTC+1): 12:30 Uhr ✓
     # MESZ (Sommer, UTC+2): 13:30 Uhr (eine Stunde später, aber nie früher als 12:30)
-    - cron: "30 11 * * *"
+    - cron: "30 17 * * *"
   workflow_dispatch:  # Manueller Start per Knopf in GitHub möglich
 
 jobs:
