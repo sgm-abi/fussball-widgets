@@ -37,11 +37,11 @@ HTML_DIR = os.path.join(SCRIPT_DIR, "..", "htmls")
 os.makedirs(HTML_DIR, exist_ok=True)
 
 
-def sftp_upload(local_files: list, kw_current: int, kw_prev: int, kw_filename: str):
+def sftp_upload(local_files: list, kw_current: int):
     """Lädt HTML-Dateien per SFTP hoch und setzt KW-basierte Aliase.
 
     Ablauf:
-      1. Normale Dateien hochladen (current_week, next_week, etc.)
+      1. Normale Dateien hochladen (current_week, next_week, last_week, etc.)
       2. spiele_KW{kw_current}.html hochladen (echte Kalenderwoche, nicht Rolling-Window)
       3. last_week.html befüllen:
          Sa/So → spiele_KW{kw_current}.html (lokal)
@@ -82,18 +82,7 @@ def sftp_upload(local_files: list, kw_current: int, kw_prev: int, kw_filename: s
                 sftp.put(kw_n_path, f"{remote}/{kw_n_file}")
                 print(f"  ✅ {kw_n_file} → {remote}/{kw_n_file}")
 
-        # 3. last_week.html: lokal aus Repo lesen
-        #    Sa/So → spiele_KW{current} (Woche läuft/ist fertig)
-        #    Mo–Fr → spiele_KW{prev}
-        kw_for_last = kw_filename if heute.weekday() >= 5 else f"spiele_KW{kw_prev}.html"
-        kw_for_last_path = os.path.join(HTML_DIR, kw_for_last)
-        if os.path.exists(kw_for_last_path):
-            sftp.put(kw_for_last_path, f"{remote}/last_week.html")
-            print(f"  ✅ {kw_for_last} → last_week.html")
-        else:
-            print(f"  ⚠️  {kw_for_last} nicht vorhanden – last_week.html bleibt leer")
-
-        # 4. Alte KW-Datei auf SFTP löschen (älter als 2 Wochen)
+        # 3. Alte KW-Datei auf SFTP löschen (älter als 2 Wochen)
         kw_old_file = f"spiele_KW{kw_current - 2}.html"
         try:
             sftp.remove(f"{remote}/{kw_old_file}")
@@ -458,20 +447,21 @@ def get_spielort(spiel_url):
 
 
 def get_ergebnis(spiel_url):
-    """Endstand des Spiels von der fussball.de Spielseite holen. Gibt 'X:Y' oder '' zurück."""
+    """Endstand + Halbzeitstand von der fussball.de Spielseite.
+    Gibt 'X:Y (A:B)' oder '' zurück."""
     try:
         resp = requests.get(spiel_url, headers=HEADERS, timeout=10)
         soup_spiel = BeautifulSoup(resp.text, HTML_PARSER)
-        title = soup_spiel.title.get_text() if soup_spiel.title else ""
-        m = re.search(r"\b(\d{1,2})\s*:\s*(\d{1,2})\b", title)
-        if m:
-            return f"{m.group(1)}:{m.group(2)}"
-        for cls_pattern in [r"score", r"ergebnis", r"result", r"spielstand"]:
-            el = soup_spiel.find(class_=re.compile(cls_pattern, re.I))
-            if el:
-                t = el.get_text(strip=True)
-                if re.match(r"^\d{1,2}:\d{1,2}$", t):
-                    return t
+        hr = soup_spiel.find(class_="half-result")
+        if not hr:
+            return ""
+        goals_divs = soup_spiel.find_all(class_="goals")
+        if len(goals_divs) >= 2:
+            home = len(re.findall(r"\d+'", goals_divs[0].get_text()))
+            away = len(re.findall(r"\d+'", goals_divs[1].get_text()))
+            hz_m = re.search(r"(\d{1,2})\s*:\s*(\d{1,2})", hr.get_text())
+            hz = f" ({hz_m.group(1)}:{hz_m.group(2)})" if hz_m else ""
+            return f"{home}:{away}{hz}"
     except Exception:
         pass
     return ""
@@ -560,9 +550,12 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         datum_str = filtered["Datum"][ind]
         zeit = filtered["Zeit"][ind].strip()
         spiel_text = f'<a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
-        spielort_text = filtered["Spielort"][ind]
+        ergebnis = str(filtered["Ergebnis"][ind]).strip() if "Ergebnis" in filtered.columns else ""
         spielort_url = filtered["Spielort_URL"][ind]
-        if isinstance(spielort_url, str) and spielort_url:
+        if ergebnis:
+            spiel_text += f'<br><small style="font-weight:bold;color:#1159af">Endstand: {ergebnis}</small>'
+        elif isinstance(spielort_url, str) and spielort_url:
+            spielort_text = filtered["Spielort"][ind]
             spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
         tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
         rows_html += f"""    <tr{tr_bg}>
@@ -574,6 +567,75 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
     if not rows_html:
         rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">{leer_text} ({von.strftime("%d.%m.")} – {bis.strftime("%d.%m.")})</td></tr>\n'
 
+    return f"""<!-- ABI Spiele -->
+<div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
+  <div {S_TITEL}>{titel}</div>
+  <table {S_TABLE}>
+    <thead>
+      <tr {S_THEAD_TR}>
+        <th {S_TH}>Datum</th>
+        <th {S_TH}>Team</th>
+        <th {S_TH}>Begegnung</th>
+      </tr>
+    </thead>
+    <tbody>
+{rows_html}    </tbody>
+  </table>
+  <p {S_QUELLE}>Stand: {jetzt_str}</p>
+</div>"""
+
+
+def build_last_week_html():
+    """Letzte-Woche-Widget mit Ergebnissen, aus gefrorenen KW-Dateien gebaut.
+    Sa/So → aktuelle KW (Woche endet heute), Mo–Fr → vorherige KW."""
+    kw_n = kw_current if heute.weekday() >= 5 else kw_prev
+    kw_path = os.path.join(HTML_DIR, f"spiele_KW{kw_n}.html")
+    if not os.path.exists(kw_path):
+        rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</td></tr>\n'
+        titel = f"⚽ KW{kw_n}"
+    else:
+        with open(kw_path, encoding="utf-8") as f:
+            kw_soup = BeautifulSoup(f.read(), HTML_PARSER)
+        rows_html = ""
+        row_num = 0
+        for tr in kw_soup.select("tbody tr"):
+            tds = tr.find_all("td")
+            if len(tds) < 3:
+                continue
+            link = tds[2].find("a")
+            if not link:
+                continue
+            spiel_url = link.get("href", "")
+            # Spielort-<small> entfernen, Ergebnis einfügen
+            small = tds[2].find("small")
+            if small:
+                small.decompose()
+            print(f"Lade Ergebnis ({tds[1].get_text(strip=True)}): {spiel_url}")
+            ergebnis = get_ergebnis(spiel_url)
+            time.sleep(0.5)
+            spiel_content = str(tds[2].find("a"))
+            if ergebnis:
+                is_heim = "abi-badge-heim" in tds[0].decode_contents()
+                score_m = re.match(r"(\d+):(\d+)", ergebnis)
+                pokal = ""
+                if score_m:
+                    home_g, away_g = int(score_m.group(1)), int(score_m.group(2))
+                    abi_g = home_g if is_heim else away_g
+                    opp_g = away_g if is_heim else home_g
+                    if abi_g > opp_g:
+                        pokal = "🏆 "
+                spiel_content += f'<br><small style="font-weight:bold;color:#1159af">{pokal}Endstand: {ergebnis}</small>'
+            tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
+            rows_html += f"""    <tr{tr_bg}>
+      <td {S_TD_DATE}>{tds[0].decode_contents()}</td>
+      <td {S_TD}>{tds[1].get_text(strip=True)}</td>
+      <td {S_TD}>{spiel_content}</td>
+    </tr>\n"""
+            row_num += 1
+        if not rows_html:
+            rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</td></tr>\n'
+        titel_el = kw_soup.find(attrs={"style": re.compile("font-size:15px")})
+        titel = titel_el.get_text(strip=True) if titel_el else f"⚽ KW{kw_n}"
     return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
   <div {S_TITEL}>{titel}</div>
@@ -657,6 +719,15 @@ with open(next_week_path, "w", encoding="utf-8") as f:
     f.write(next_week_html)
 print("next_week.html gespeichert")
 generated_html_files.append(next_week_path)
+
+# Letzte Woche (mit Ergebnissen, aus gefrorenen KW-Dateien)
+print("Generiere last_week.html …")
+last_week_html = build_last_week_html()
+last_week_path = os.path.join(HTML_DIR, "last_week.html")
+with open(last_week_path, "w", encoding="utf-8") as f:
+    f.write(last_week_html)
+print("last_week.html gespeichert")
+generated_html_files.append(last_week_path)
 
 # kw_data für per-Team-Widgets (aktuelle Woche)
 kw_data = df[df["Datum"].apply(lambda d: in_zeitfenster(d, cw_von, cw_bis))].copy()
@@ -763,4 +834,4 @@ for _, row in ad_teams.iterrows():
         f.write(spiele_html + liga_html)
     print(f"{filename} gespeichert")
 
-sftp_upload(generated_html_files, kw_current=kw_current, kw_prev=kw_prev, kw_filename=kw_filename)
+sftp_upload(generated_html_files, kw_current=kw_current)
