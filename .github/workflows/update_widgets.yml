@@ -2,10 +2,9 @@ name: ABI Fussball Widgets aktualisieren
 
 on:
   schedule:
-    # Täglich mindestens 12:30 Uhr Ortszeit
-    # MEZ  (Winter, UTC+1): 12:30 Uhr ✓
-    # MESZ (Sommer, UTC+2): 13:30 Uhr (eine Stunde später, aber nie früher als 12:30)
-    - cron: "30 17 * * *"
+    # MEZ  (Winter, UTC+1): 17:00 Uhr
+    # MESZ (Sommer, UTC+2): 18:00 Uhr
+    - cron: "0 16 * * *"
   workflow_dispatch:  # Manueller Start per Knopf in GitHub möglich
 
 jobs:
