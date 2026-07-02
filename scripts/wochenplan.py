@@ -741,8 +741,8 @@ if not kw_data.empty:
         format="%d.%m.%y %H:%M"
     )
     kw_data = kw_data.sort_values(by="_sort_datetime")
-kw_data["Heim"] = kw_data["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
-kw_data["Gast"] = kw_data["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+    kw_data["Heim"] = kw_data["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+    kw_data["Gast"] = kw_data["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
 
 aktuelle_spiele_html = current_week_html
 
