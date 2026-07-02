@@ -430,8 +430,8 @@ generated_html_files.append(alle_teams_path)
 if os.path.exists(outfile):
     df = pd.read_csv(outfile, sep=",")
 else:
-    df = pd.DataFrame(columns=["Datum", "Zeit", "Team", "KW", "Heim", "Gast",
-                                "Logo Heim", "Logo Gast", "home_link", "guest_link", "Spiel"])
+    print("Keine Spiele gefunden (Sommerpause?) – Script wird beendet.")
+    raise SystemExit(0)
 
 # Spielort für Auswärtsspiele der Teams A–D von der Detailseite abrufen
 def get_spielort(spiel_url):
