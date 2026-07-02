@@ -427,7 +427,11 @@ with open(alle_teams_path, "w", encoding="utf-8") as f:
 print("alle_teams.html gespeichert")
 generated_html_files.append(alle_teams_path)
 
-df = pd.read_csv(outfile, sep=",")
+if os.path.exists(outfile):
+    df = pd.read_csv(outfile, sep=",")
+else:
+    df = pd.DataFrame(columns=["Datum", "Zeit", "Team", "KW", "Heim", "Gast",
+                                "Logo Heim", "Logo Gast", "home_link", "guest_link", "Spiel"])
 
 # Spielort für Auswärtsspiele der Teams A–D von der Detailseite abrufen
 def get_spielort(spiel_url):
