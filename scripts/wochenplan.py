@@ -535,8 +535,8 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
             format="%d.%m.%y %H:%M"
         )
         filtered = filtered.sort_values(by="_sort_datetime")
-    filtered["Heim"] = filtered["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
-    filtered["Gast"] = filtered["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+        filtered["Heim"] = filtered["Heim"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
+        filtered["Gast"] = filtered["Gast"].replace(ABI_TEAM_REGEX, ABI_TEAM, regex=True)
 
     rows_html = ""
     for row_num, ind in enumerate(filtered.index):
