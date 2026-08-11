@@ -1,8 +1,6 @@
 # Generierte HTML-Ausgaben in scripts/ ignorieren (werden jetzt in htmls/ gespeichert)
 scripts/*.html
 
-htmls/*.html
-
 # Generierte CSV-Ausgaben
 scripts/All_games_from_fussball_de.csv
 
