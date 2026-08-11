@@ -428,7 +428,7 @@ print("alle_teams.html gespeichert")
 generated_html_files.append(alle_teams_path)
 
 termine_path = os.path.join(SCRIPT_DIR, "abi_termine.csv")
-termine_df = pd.read_csv(termine_path) if os.path.exists(termine_path) else pd.DataFrame(columns=["Datum", "Zeit", "Titel", "Team"])
+termine_df = pd.read_csv(termine_path) if os.path.exists(termine_path) else pd.DataFrame(columns=["Datum", "Zeit", "Titel", "Team", "Link"])
 
 if os.path.exists(outfile):
     df = pd.read_csv(outfile, sep=",")
@@ -459,7 +459,8 @@ if not termine_df.empty:
         "Gast": "",
         "Logo Heim": "", "Logo Gast": "",
         "home_link": "", "guest_link": "",
-        "Spiel": "", "Spielort": "", "Spielort_URL": "",
+        "Spiel": termine_df.get("Link", pd.Series([""] * len(termine_df))).fillna(""),
+        "Spielort": "", "Spielort_URL": "",
         "Typ": "Termin",
     })
     df = pd.concat([df, termin_rows], ignore_index=True)
@@ -586,6 +587,9 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         if typ == "Termin":
             termin_titel = str(filtered["Heim"][ind])
             team_str = str(filtered["Team"][ind])
+            termin_link = str(filtered["Spiel"][ind]).strip() if "Spiel" in filtered.columns else ""
+            if termin_link and termin_link.lower() != "nan":
+                termin_titel = f'<a href="{termin_link}" target="_blank">{termin_titel}</a>'
             rows_html += f"""    <tr style="background-color:#fff8e1;border-left:3px solid #f59e0b">
       <td {S_TD_DATE}>{datum_str} | {zeit}<br><span style="background:#f59e0b;color:#fff;padding:1px 5px;border-radius:3px;font-size:0.75em;font-weight:bold">📅 Termin</span></td>
       <td {S_TD}>{team_str}</td>
