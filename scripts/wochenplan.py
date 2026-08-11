@@ -584,12 +584,12 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         zeit = str(filtered["Zeit"][ind]).strip()
 
         if typ == "Termin":
-            titel = str(filtered["Heim"][ind])
+            termin_titel = str(filtered["Heim"][ind])
             team_str = str(filtered["Team"][ind])
             rows_html += f"""    <tr style="background-color:#fff8e1;border-left:3px solid #f59e0b">
       <td {S_TD_DATE}>{datum_str} | {zeit}<br><span style="background:#f59e0b;color:#fff;padding:1px 5px;border-radius:3px;font-size:0.75em;font-weight:bold">📅 Termin</span></td>
       <td {S_TD}>{team_str}</td>
-      <td {S_TD}><strong>{titel}</strong></td>
+      <td {S_TD}><strong>{termin_titel}</strong></td>
     </tr>\n"""
             continue
 
@@ -748,7 +748,7 @@ for delta in range(3):  # KW+0, KW+1, KW+2
 print(f"Generiere current_week.html ({cw_von} – {cw_bis})")
 current_week_html = build_spiele_html(
     df, cw_von, cw_bis,
-    titel=f"⚽ Diese Woche ({cw_von.strftime('%d.%m.')} – {cw_bis.strftime('%d.%m.%y')})",
+    titel="⚽ Was steht an",
     leer_text="Keine Spiele diese Woche",
     alle_termine=True
 )
@@ -757,13 +757,6 @@ with open(current_week_path, "w", encoding="utf-8") as f:
     f.write(current_week_html)
 print("current_week.html gespeichert")
 generated_html_files.append(current_week_path)
-
-# Rückwärtskompatibilität: Aktuelle_Spiele.html = current_week.html
-aktuelle_spiele_path = os.path.join(HTML_DIR, "Aktuelle_Spiele.html")
-with open(aktuelle_spiele_path, "w", encoding="utf-8") as f:
-    f.write(current_week_html)
-print("Aktuelle_Spiele.html gespeichert (= current_week.html)")
-generated_html_files.append(aktuelle_spiele_path)
 
 # Nächste Woche
 print(f"Generiere next_week.html ({nw_von} – {nw_bis})")
