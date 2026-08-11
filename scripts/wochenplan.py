@@ -430,7 +430,8 @@ generated_html_files.append(alle_teams_path)
 if os.path.exists(outfile):
     df = pd.read_csv(outfile, sep=",")
 else:
-    print("Keine Spiele gefunden (Sommerpause?) – Script wird beendet.")
+    print("Keine Spiele gefunden (Sommerpause?) – lade Tabelle hoch und beende.")
+    sftp_upload([alle_teams_path], kw_current=kw_current)
     raise SystemExit(0)
 
 # Spielort für Auswärtsspiele der Teams A–D von der Detailseite abrufen
