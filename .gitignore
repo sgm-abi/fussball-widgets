@@ -1,8 +1,7 @@
 # Generierte HTML-Ausgaben in scripts/ ignorieren (werden jetzt in htmls/ gespeichert)
 scripts/*.html
 
-# htmls/ wird versioniert (KW-Archiv, wird per SFTP hochgeladen)
-# htmls/*.html  ← explizit NICHT ignoriert
+htmls/*
 
 # Generierte CSV-Ausgaben
 scripts/All_games_from_fussball_de.csv
