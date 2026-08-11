@@ -427,12 +427,42 @@ with open(alle_teams_path, "w", encoding="utf-8") as f:
 print("alle_teams.html gespeichert")
 generated_html_files.append(alle_teams_path)
 
+termine_path = os.path.join(SCRIPT_DIR, "abi_termine.csv")
+termine_df = pd.read_csv(termine_path) if os.path.exists(termine_path) else pd.DataFrame(columns=["Datum", "Zeit", "Titel", "Team"])
+
 if os.path.exists(outfile):
     df = pd.read_csv(outfile, sep=",")
+    df["Typ"] = "Spiel"
 else:
-    print("Keine Spiele gefunden (Sommerpause?) – lade Tabelle hoch und beende.")
-    sftp_upload([alle_teams_path], kw_current=kw_current)
-    raise SystemExit(0)
+    if termine_df.empty:
+        print("Keine Spiele und keine Termine – lade Tabelle hoch und beende.")
+        sftp_upload([alle_teams_path], kw_current=kw_current)
+        raise SystemExit(0)
+    df = pd.DataFrame(columns=["Datum", "Zeit", "Team", "KW", "Heim", "Gast",
+                                "Logo Heim", "Logo Gast", "home_link", "guest_link",
+                                "Spiel", "Spielort", "Spielort_URL", "Typ"])
+
+if not termine_df.empty:
+    def datum_zu_kw(datum_str):
+        try:
+            d, m, y = datum_str.split(".")
+            return datetime.date(int(y) + 2000, int(m), int(d)).isocalendar()[1]
+        except Exception:
+            return 0
+
+    termin_rows = pd.DataFrame({
+        "Datum": termine_df["Datum"].astype(str),
+        "Zeit": termine_df["Zeit"].astype(str),
+        "Team": termine_df.get("Team", pd.Series(["Alle"] * len(termine_df))).fillna("Alle"),
+        "KW": termine_df["Datum"].astype(str).apply(datum_zu_kw),
+        "Heim": termine_df["Titel"].astype(str),
+        "Gast": "",
+        "Logo Heim": "", "Logo Gast": "",
+        "home_link": "", "guest_link": "",
+        "Spiel": "", "Spielort": "", "Spielort_URL": "",
+        "Typ": "Termin",
+    })
+    df = pd.concat([df, termin_rows], ignore_index=True)
 
 # Spielort für Auswärtsspiele der Teams A–D von der Detailseite abrufen
 def get_spielort(spiel_url):
@@ -499,7 +529,8 @@ spielorte_url = []
 for idx in df.index:
     team = df.loc[idx, "Team"]
     heim = str(df.loc[idx, "Heim"])
-    is_ad_team = team[0] in "ABCD"
+    is_spiel = df.loc[idx, "Typ"] == "Spiel" if "Typ" in df.columns else True
+    is_ad_team = team[0] in "ABCD" and is_spiel
     # Spielort für aktuelle + nächste Woche abrufen (letzte Woche: Spiel bereits gelaufen)
     in_naechste_kw = in_zeitfenster(str(df.loc[idx, "Datum"]), cw_von, nw_bis)
     if is_ad_team and in_naechste_kw:
@@ -512,8 +543,8 @@ for idx in df.index:
         spielorte_text.append("")
         spielorte_url.append("")
 
-df.insert(len(df.columns), "Spielort", spielorte_text)
-df.insert(len(df.columns), "Spielort_URL", spielorte_url)
+df["Spielort"] = spielorte_text
+df["Spielort_URL"] = spielorte_url
 df.to_csv(outfile, index=False)
 
 # Inline-Style-Konstanten für WordPress-Kompatibilität
@@ -527,9 +558,16 @@ S_BADGE_AUSW = 'class="abi-badge-ausw"'
 S_TITEL = 'style="font-size:15px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
-def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum"):
+def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum", alle_termine=False):
     """Erzeugt eine HTML-Spieltabelle für den gegebenen Zeitraum."""
-    filtered = data[data["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))].copy()
+    if alle_termine and "Typ" in data.columns:
+        spiele = data[data["Typ"] != "Termin"]
+        termine = data[data["Typ"] == "Termin"]
+        filtered_spiele = spiele[spiele["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))]
+        filtered_termine = termine[termine["Datum"].apply(lambda d: parse_datum(d) is not None and parse_datum(d) >= von)]
+        filtered = pd.concat([filtered_spiele, filtered_termine]).copy()
+    else:
+        filtered = data[data["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))].copy()
     if not filtered.empty:
         filtered["_sort_datetime"] = pd.to_datetime(
             filtered["Datum"] + " " + filtered["Zeit"],
@@ -541,6 +579,20 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 
     rows_html = ""
     for row_num, ind in enumerate(filtered.index):
+        typ = filtered["Typ"][ind] if "Typ" in filtered.columns else "Spiel"
+        datum_str = filtered["Datum"][ind]
+        zeit = str(filtered["Zeit"][ind]).strip()
+
+        if typ == "Termin":
+            titel = str(filtered["Heim"][ind])
+            team_str = str(filtered["Team"][ind])
+            rows_html += f"""    <tr style="background-color:#fff8e1;border-left:3px solid #f59e0b">
+      <td {S_TD_DATE}>{datum_str} | {zeit}<br><span style="background:#f59e0b;color:#fff;padding:1px 5px;border-radius:3px;font-size:0.75em;font-weight:bold">📅 Termin</span></td>
+      <td {S_TD}>{team_str}</td>
+      <td {S_TD}><strong>{titel}</strong></td>
+    </tr>\n"""
+            continue
+
         heim = filtered["Heim"][ind].replace("\u200b", "")
         gast = filtered["Gast"][ind].replace("\u200b", "")
         is_heimspiel = heim == ABI_TEAM
@@ -697,7 +749,8 @@ print(f"Generiere current_week.html ({cw_von} – {cw_bis})")
 current_week_html = build_spiele_html(
     df, cw_von, cw_bis,
     titel=f"⚽ Diese Woche ({cw_von.strftime('%d.%m.')} – {cw_bis.strftime('%d.%m.%y')})",
-    leer_text="Keine Spiele diese Woche"
+    leer_text="Keine Spiele diese Woche",
+    alle_termine=True
 )
 current_week_path = os.path.join(HTML_DIR, "current_week.html")
 with open(current_week_path, "w", encoding="utf-8") as f:
