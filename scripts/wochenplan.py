@@ -19,7 +19,7 @@ HEADERS = {
     ),
     "Accept-Language": "de-DE,de;q=0.9",
 }
-SAISON = "2526"
+SAISON = "2627"
 HTML_PARSER = "html.parser"
 ABI_TEAM = "SGM ABI"
 ABI_TEAM_REGEX = r"SGM.*ABI.*"
@@ -430,6 +430,18 @@ generated_html_files.append(alle_teams_path)
 termine_path = os.path.join(SCRIPT_DIR, "abi_termine.csv")
 termine_df = pd.read_csv(termine_path) if os.path.exists(termine_path) else pd.DataFrame(columns=["Datum", "Zeit", "Titel", "Team", "Link"])
 
+termin_heute = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin")).date()
+
+def termin_ist_aktuell(datum_str):
+    try:
+        d, m, y = str(datum_str).split(".")
+        return datetime.date(int(y) + 2000, int(m), int(d)) >= termin_heute
+    except (TypeError, ValueError):
+        return True
+
+if not termine_df.empty:
+    termine_df = termine_df[termine_df["Datum"].apply(termin_ist_aktuell)].copy()
+
 if os.path.exists(outfile):
     df = pd.read_csv(outfile, sep=",")
     df["Typ"] = "Spiel"
@@ -603,9 +615,9 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
         if is_heimspiel:
             heim_text = f"{heim} {filtered['Team'][ind]}"
-            gast_text = gast if len(gast) < 44 else f"{gast[:45]}..."
+            gast_text = gast if len(gast) < 20 else f"{gast[:20]}..."
         else:
-            heim_text = heim if len(heim) < 44 else f"{heim[:45]}..."
+            heim_text = heim if len(heim) < 20 else f"{heim[:20]}..."
             gast_text = f"{gast} {filtered['Team'][ind]}"
         spiellink = filtered["Spiel"][ind]
         datum_str = filtered["Datum"][ind]

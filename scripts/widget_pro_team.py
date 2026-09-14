@@ -67,7 +67,7 @@ TEAMS = [
     },
 ]
 
-SAISON = "2526"
+SAISON = "2627"
 MAX_SPIELE = 5
 OUR_TEAM_FRAGMENT = "ABI"
 ABI_TEAM = "SGM ABI"
@@ -184,10 +184,20 @@ SHARED_CSS = """
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+.abi-verein {
+    max-width: 18em;
+}
 @media (max-width: 600px) {
   .abi-widget { font-size: 0.82em; }
+    .abi-table-spiele { table-layout: fixed; }
   .abi-table thead th,
   .abi-table tbody td { padding: 4px 5px; }
+    .abi-verein {
+        max-width: 11em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
   .abi-table .col-g,
   .abi-table .col-u,
   .abi-table .col-v { display: none; }
@@ -207,6 +217,18 @@ def fetch(url: str) -> str:
 
 def jetzt() -> str:
     return datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
+
+
+def kurzer_vereinsname(name: str, max_laenge: int = 28) -> str:
+    """Kürzt lange Vereinsnamen für die kompakte Tabellenansicht."""
+    name = re.sub(r"\s+", " ", name).strip()
+    if len(name) <= max_laenge:
+        return name
+
+    name_ohne_nummer = re.sub(r"\s+(?:I{1,3}|[1-3])$", "", name)
+    if len(name_ohne_nummer) <= max_laenge:
+        return name_ohne_nummer
+    return name[: max_laenge - 3].rstrip() + "..."
 
 
 # ── Spielplan ─────────────────────────────────────────────────────────────────
@@ -281,20 +303,22 @@ def render_spiele(spiele: list[dict], team_name: str, team_id: str) -> str:
             if sp["heimspiel"]
             else '<span class="abi-badge abi-badge-ausw">Auswärts</span>'
         )
+        heim_kurz = kurzer_vereinsname(sp["heim"])
+        gast_kurz = kurzer_vereinsname(sp["gast"])
         h = html_module.escape
         rows += f"""
     <tr>
       <td style="white-space:nowrap">{h(sp['datum'])}<br>{badge}</td>
-      <td>{h(sp['heim'])}</td>
+            <td class="abi-verein" title="{h(sp['heim'])}">{h(heim_kurz)}</td>
       <td class="col-sep" style="text-align:center;color:#aaa">–</td>
-      <td>{h(sp['gast'])}</td>
+            <td class="abi-verein" title="{h(sp['gast'])}">{h(gast_kurz)}</td>
       <td><a href="{sp['link']}" target="_blank" rel="noopener">➜</a></td>
     </tr>"""
     return f"""<!-- ABI Nächste Spiele Widget -->
 <div class="abi-widget">
   <div class="abi-widget-titel">⚽ Nächste Spiele – {html_module.escape(team_name)}</div>
   <div class="abi-table-wrap">
-  <table class="abi-table">
+    <table class="abi-table abi-table-spiele">
     <thead>
       <tr>
         <th>Datum</th>
@@ -343,20 +367,22 @@ def render_spiele_kombiniert(spiele_liste: list[tuple]) -> str:
             if sp["heimspiel"]
             else '<span class="abi-badge abi-badge-ausw">Auswärts</span>'
         )
+        heim_kurz = kurzer_vereinsname(sp["heim"])
+        gast_kurz = kurzer_vereinsname(sp["gast"])
         rows += f"""
     <tr>
       <td style="white-space:nowrap">{h(sp['datum'])}<br>{badge}</td>
       <td style="white-space:nowrap;font-weight:bold;color:#1159af">{label}</td>
-      <td>{h(sp['heim'])}</td>
+            <td class="abi-verein" title="{h(sp['heim'])}">{h(heim_kurz)}</td>
       <td class="col-sep" style="text-align:center;color:#aaa">–</td>
-      <td>{h(sp['gast'])}</td>
+            <td class="abi-verein" title="{h(sp['gast'])}">{h(gast_kurz)}</td>
       <td><a href="{sp['link']}" target="_blank" rel="noopener">➜</a></td>
     </tr>"""
     return f"""<!-- ABI Nächste Spiele Widget -->
 <div class="abi-widget">
   <div class="abi-widget-titel">⚽ Nächste Spiele – D-Junioren</div>
   <div class="abi-table-wrap">
-  <table class="abi-table">
+    <table class="abi-table abi-table-spiele">
     <thead>
       <tr>
         <th>Datum</th>
