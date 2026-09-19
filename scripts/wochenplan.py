@@ -697,7 +697,7 @@ def build_last_week_html():
             row_num += 1
         if not rows_html:
             rows_html = f'    <div style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</div>\n'
-        titel_el = kw_soup.find(attrs={"style": re.compile("font-size:14px")})
+        titel_el = kw_soup.select_one(".aktuelle > div:first-of-type")
         titel = titel_el.get_text(strip=True) if titel_el else f"⚽ KW{kw_n}"
     return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;text-align:left;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
