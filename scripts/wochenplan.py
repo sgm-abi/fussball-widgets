@@ -479,7 +479,7 @@ if not termine_df.empty:
 
 # Spielort für Auswärtsspiele der Teams A–D von der Detailseite abrufen
 def get_spielort(spiel_url):
-    """Gibt (adresse, maps_url) zurück, z.B. ('Am Sportplatz 1, 74369 Löchgau', 'https://...')"""
+    """Gibt (ort, maps_url) zurück, z.B. ('Löchgau', 'https://...')."""
     try:
         resp = requests.get(spiel_url)
         soup_spiel = BeautifulSoup(resp.text, HTML_PARSER)
@@ -488,7 +488,8 @@ def get_spielort(spiel_url):
             maps_url = maps_link["href"]
             params = parse_qs(urlparse(maps_url).query)
             adresse = re.sub(r",?\s*\d{5}\s*", ", ", unquote_plus(params.get("q", [""])[0])).strip(", ")
-            return adresse, maps_url
+            ort = adresse.rsplit(",", 1)[-1].strip()
+            return ort, maps_url
     except Exception:
         pass
     return "", ""
