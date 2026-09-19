@@ -573,7 +573,7 @@ S_TITEL = 'style="font-size:14px;font-weight:700;color:#1159af;margin-bottom:6px
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
 def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum", alle_termine=False):
-    """Erzeugt eine HTML-Spieltabelle für den gegebenen Zeitraum."""
+    """Erzeugt eine mobile-first Spielübersicht für den gegebenen Zeitraum."""
     if alle_termine and "Typ" in data.columns:
         spiele = data[data["Typ"] != "Termin"]
         termine = data[data["Typ"] == "Termin"]
@@ -603,11 +603,10 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
             termin_link = str(filtered["Spiel"][ind]).strip() if "Spiel" in filtered.columns else ""
             if termin_link and termin_link.lower() != "nan":
                 termin_titel = f'<a href="{termin_link}" target="_blank">{termin_titel}</a>'
-            rows_html += f"""    <tr style="background-color:#fff8e1;border-left:3px solid #f59e0b">
-      <td {S_TD_DATE}>{datum_str} | {zeit}<br><span style="background:#f59e0b;color:#fff;padding:1px 5px;border-radius:3px;font-size:0.75em;font-weight:bold">📅 Termin</span></td>
-      <td {S_TD}>{team_str}</td>
-      <td {S_TD}><strong>{termin_titel}</strong></td>
-    </tr>\n"""
+            rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;background-color:#fff8e1;border-left:3px solid #f59e0b">
+      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit} · {team_str} · 📅 Termin</div>
+      <div style="padding:2px 9px 0"><strong>{termin_titel}</strong></div>
+    </div>\n"""
             continue
 
         heim = filtered["Heim"][ind].replace("\u200b", "")
@@ -632,30 +631,19 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         elif isinstance(spielort_url, str) and spielort_url:
             spielort_text = filtered["Spielort"][ind]
             spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
-        tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
-        rows_html += f"""    <tr{tr_bg}>
-      <td {S_TD_DATE}>{datum_str} | {zeit}<br>{badge}</td>
-      <td {S_TD}>{filtered["Team"][ind]}</td>
-      <td {S_TD}>{spiel_text}</td>
-    </tr>\n"""
+        tr_bg = "background-color:#f0f4fb;" if row_num % 2 == 1 else ""
+        rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;{tr_bg}">
+      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit} · {badge}</div>
+      <div style="padding:2px 9px 0">{spiel_text}</div>
+    </div>\n"""
 
     if not rows_html:
-        rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">{leer_text} ({von.strftime("%d.%m.")} – {bis.strftime("%d.%m.")})</td></tr>\n'
+        rows_html = f'    <div style="padding:8px;color:#aaa;text-align:center">{leer_text} ({von.strftime("%d.%m.")} – {bis.strftime("%d.%m.")})</div>\n'
 
     return f"""<!-- ABI Spiele -->
-<div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
+<div class="aktuelle" style="margin:1em 0;text-align:left;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
   <div {S_TITEL}>{titel}</div>
-  <table {S_TABLE}>
-    <thead>
-      <tr {S_THEAD_TR}>
-        <th {S_TH}>Datum</th>
-        <th {S_TH}>Team</th>
-        <th {S_TH}>Begegnung</th>
-      </tr>
-    </thead>
-    <tbody>
-{rows_html}    </tbody>
-  </table>
+    <div>{rows_html}  </div>
   <p {S_QUELLE}>Stand: {jetzt_str}</p>
 </div>"""
 
@@ -700,31 +688,20 @@ def build_last_week_html():
                     if abi_g > opp_g:
                         pokal = "🏆 "
                 spiel_content += f'<br><small style="font-weight:bold;color:#1159af">{pokal}Endstand: {ergebnis}</small>'
-            tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
-            rows_html += f"""    <tr{tr_bg}>
-      <td {S_TD_DATE}>{tds[0].decode_contents()}</td>
-      <td {S_TD}>{tds[1].get_text(strip=True)}</td>
-      <td {S_TD}>{spiel_content}</td>
-    </tr>\n"""
+            tr_bg = "background-color:#f0f4fb;" if row_num % 2 == 1 else ""
+            rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;{tr_bg}">
+            <div style="padding:0 9px;font-weight:600;color:#555">{tds[0].get_text(" ", strip=True)} · {tds[1].get_text(strip=True)}</div>
+            <div style="padding:2px 9px 0">{spiel_content}</div>
+        </div>\n"""
             row_num += 1
         if not rows_html:
-            rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</td></tr>\n'
+            rows_html = f'    <div style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</div>\n'
         titel_el = kw_soup.find(attrs={"style": re.compile("font-size:14px")})
         titel = titel_el.get_text(strip=True) if titel_el else f"⚽ KW{kw_n}"
     return f"""<!-- ABI Spiele -->
-<div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
+<div class="aktuelle" style="margin:1em 0;text-align:left;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
   <div {S_TITEL}>{titel}</div>
-  <table {S_TABLE}>
-    <thead>
-      <tr {S_THEAD_TR}>
-        <th {S_TH}>Datum</th>
-        <th {S_TH}>Team</th>
-        <th {S_TH}>Begegnung</th>
-      </tr>
-    </thead>
-    <tbody>
-{rows_html}    </tbody>
-  </table>
+    <div>{rows_html}  </div>
   <p {S_QUELLE}>Stand: {jetzt_str}</p>
 </div>"""
 
