@@ -612,7 +612,7 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 
         heim = filtered["Heim"][ind].replace("\u200b", "")
         gast = filtered["Gast"][ind].replace("\u200b", "")
-        textwidth = 15
+        textwidth = 20
         is_heimspiel = heim == ABI_TEAM
         badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
         if is_heimspiel:
