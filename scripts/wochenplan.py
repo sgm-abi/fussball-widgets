@@ -21,7 +21,7 @@ HEADERS = {
 }
 SAISON = "2627"
 HTML_PARSER = "html.parser"
-ABI_TEAM = "SGM ABI"
+ABI_TEAM = "ABI"
 ABI_TEAM_REGEX = r"SGM.*ABI.*"
 
 # SFTP-Konfiguration – Werte kommen aus Umgebungsvariablen (GitHub Secrets)
@@ -399,13 +399,13 @@ for _, row in ad_teams.iterrows():
 stand_alle = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
 alle_teams_html = f"""<style>
 .at-widget {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0.8em 0; }}
-.at-titel {{ font-size: 15px; font-weight: 700; color: #1159af; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 2px solid #1159af; }}
-.at-table {{ width: 100%; border-collapse: collapse; font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+.at-titel {{ font-size: 14px; font-weight: 700; color: #1159af; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 2px solid #1159af; }}
+.at-table {{ width: 100%; border-collapse: collapse; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
 .at-table thead tr {{ background-color: #1159af; color: #fff; }}
-.at-table thead th {{ padding: 7px 9px; text-align: left; font-weight: 600; font-size: 15px; }}
+.at-table thead th {{ padding: 7px 9px; text-align: left; font-weight: 600; font-size: 14px; }}
 .at-table tbody tr {{ border-bottom: 1px solid #e0e0e0; }}
 .at-table tbody tr:nth-child(even) {{ background-color: #f7f7f7; }}
-.at-table tbody td {{ padding: 6px 9px; font-size: 15px; }}
+.at-table tbody td {{ padding: 6px 9px; font-size: 14px; }}
 .at-platz-badge {{ display: inline-block; min-width: 24px; text-align: center; padding: 2px 5px; border-radius: 4px; font-size: 13px; font-weight: bold; background: #1159af; color: #fff; }}
 .at-quelle {{ font-size: 12px; color: #aaa; margin-top: 5px; text-align: right; }}
 </style>
@@ -568,7 +568,7 @@ S_TD = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0
 S_TD_DATE = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0e0e0;white-space:nowrap"'
 S_BADGE_HEIM = 'class="abi-badge-heim"'
 S_BADGE_AUSW = 'class="abi-badge-ausw"'
-S_TITEL = 'style="font-size:15px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
+S_TITEL = 'style="font-size:14px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
 def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum", alle_termine=False):
@@ -611,13 +611,14 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 
         heim = filtered["Heim"][ind].replace("\u200b", "")
         gast = filtered["Gast"][ind].replace("\u200b", "")
+        textwidth = 15
         is_heimspiel = heim == ABI_TEAM
         badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
         if is_heimspiel:
             heim_text = f"{heim} {filtered['Team'][ind]}"
-            gast_text = gast if len(gast) < 20 else f"{gast[:20]}..."
+            gast_text = gast if len(gast) < textwidth else f"{gast[:textwidth]}..."
         else:
-            heim_text = heim if len(heim) < 20 else f"{heim[:20]}..."
+            heim_text = heim if len(heim) < textwidth else f"{heim[:textwidth]}..."
             gast_text = f"{gast} {filtered['Team'][ind]}"
         spiellink = filtered["Spiel"][ind]
         datum_str = filtered["Datum"][ind]
@@ -707,7 +708,7 @@ def build_last_week_html():
             row_num += 1
         if not rows_html:
             rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</td></tr>\n'
-        titel_el = kw_soup.find(attrs={"style": re.compile("font-size:15px")})
+        titel_el = kw_soup.find(attrs={"style": re.compile("font-size:14px")})
         titel = titel_el.get_text(strip=True) if titel_el else f"⚽ KW{kw_n}"
     return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;overflow-x:auto;text-align:left">
