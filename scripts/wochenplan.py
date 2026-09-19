@@ -625,15 +625,16 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         zeit = filtered["Zeit"][ind].strip()
         spiel_text = f'<a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
         ergebnis = str(filtered["Ergebnis"][ind]).strip() if "Ergebnis" in filtered.columns else ""
+        spielort_text = str(filtered["Spielort"][ind]).strip()
         spielort_url = filtered["Spielort_URL"][ind]
+        spielort_html = ""
+        if isinstance(spielort_url, str) and spielort_url and spielort_text:
+            spielort_html = f' · 📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a>'
         if ergebnis:
             spiel_text += f'<br><small style="font-weight:bold;color:#1159af">Endstand: {ergebnis}</small>'
-        elif isinstance(spielort_url, str) and spielort_url:
-            spielort_text = filtered["Spielort"][ind]
-            spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
         tr_bg = "background-color:#f0f4fb;" if row_num % 2 == 1 else ""
         rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;{tr_bg}">
-      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit} · {badge}</div>
+      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit} · {badge}{spielort_html}</div>
       <div style="padding:2px 9px 0">{spiel_text}</div>
     </div>\n"""
 
