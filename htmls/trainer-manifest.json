@@ -1,0 +1,20 @@
+{
+    "name": "SGM ABI Trainerbereich",
+    "short_name": "Trainer App",
+    "start_url": "/trainerbereich/",
+    "display": "standalone",
+    "background_color": "#f4f6f9",
+    "theme_color": "#0073aa",
+    "icons": [
+        {
+            "src": "/wp-content/uploads/app-icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/wp-content/uploads/app-icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
