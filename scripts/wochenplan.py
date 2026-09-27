@@ -372,12 +372,10 @@ for _, row in ad_teams.iterrows():
     tname = row["team"]
     p = str(row.get("Platz", "")).strip()
     sp = str(row.get("Spiele", "")).strip()
-    tore = str(row.get("Tore", "")).strip()
     pkt = str(row.get("Punkte", "")).strip()
     keine_spiele = sp in ("", "0")
     platz_text = f'<span class="abi-platz-badge">{p}</span>' if (p and not keine_spiele) else "–"
     spiele_text = sp if sp else "–"
-    tore_text = tore if (tore and not keine_spiele) else "–"
     pkt_text = f"<strong>{pkt}</strong>" if (pkt and not keine_spiele) else "–"
     fussball_url = str(row.get("url", "")).strip().rstrip("#!/")
     buchstabe = tname[0].lower()
@@ -391,7 +389,6 @@ for _, row in ad_teams.iterrows():
     rows_html += (
         f"\t<tr{tr_style}>\n\t\t<td>{team_cell}</td>\n"
         f"\t\t<td style='text-align:center'>{spiele_text}</td>\n"
-        f"\t\t<td style='text-align:center'>{tore_text}</td>\n"
         f"\t\t<td style='text-align:center'>{pkt_text}</td>\n"
         f"\t\t<td style='text-align:center'>{platz_text}</td>\n\t</tr>\n"
     )
@@ -412,7 +409,7 @@ alle_teams_html = f"""<style>
 <div class="at-widget">
   <div class="at-titel">📊 Tabellenplätze ABI-Teams</div>
   <table class="at-table">
-    <thead><tr><th>Team</th><th style="text-align:center">Sp</th><th style="text-align:center">Tore</th><th style="text-align:center">Pkt</th><th style="text-align:center">Platz</th></tr></thead>
+    <thead><tr><th>Team</th><th style="text-align:center">Sp</th><th style="text-align:center">Pkt</th><th style="text-align:center">Platz</th></tr></thead>
     <tbody>
 {rows_html}    </tbody>
   </table>
