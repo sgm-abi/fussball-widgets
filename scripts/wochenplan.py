@@ -565,7 +565,7 @@ S_TH = 'style="padding:7px 9px;text-align:left!important;font-weight:600;backgro
 S_TD = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0e0e0"'
 S_TD_DATE = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0e0e0;white-space:nowrap"'
 # Auswärts-Badge entfällt bewusst (mehr Platz für Ortsnamen); Heim-Badge orange als Komplementärfarbe zu Blau
-S_BADGE_HEIM = 'class="abi-badge-heim" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.75em;font-weight:bold;background:#f57c00;color:#fff"'
+S_BADGE_HEIM = 'class="abi-badge-heim" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.75em;font-weight:bold;background:#1159af;color:#fff"'
 S_TITEL = 'style="font-size:14px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
@@ -611,16 +611,18 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         textwidth = 20
         is_heimspiel = heim == ABI_TEAM
         badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else ""
+        team_name = filtered["Team"][ind]
         if is_heimspiel:
-            heim_text = f"{heim} {filtered['Team'][ind]}"
+            heim_text = f"{heim} {team_name}"
             gast_text = gast if len(gast) < textwidth else f"{gast[:textwidth]}..."
         else:
             heim_text = heim if len(heim) < textwidth else f"{heim[:textwidth]}..."
-            gast_text = f"{gast} {filtered['Team'][ind]}"
+            gast_text = f"{gast} {team_name}"
         spiellink = filtered["Spiel"][ind]
         datum_str = filtered["Datum"][ind]
         zeit = filtered["Zeit"][ind].strip()
-        spiel_text = f'<a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
+        # Team-Kürzel voranstellen, damit die Mannschaft beim Überfliegen sofort erkennbar ist
+        spiel_text = f'<strong style="color:#1159af">{team_name}:</strong> <a href="{spiellink}" target="_blank">{heim_text} vs. {gast_text}</a>'
         ergebnis = str(filtered["Ergebnis"][ind]).strip() if "Ergebnis" in filtered.columns else ""
         spielort_text = str(filtered["Spielort"][ind]).strip()
         spielort_url = filtered["Spielort_URL"][ind]
