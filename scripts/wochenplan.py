@@ -564,8 +564,8 @@ S_THEAD_TR = 'style="background-color:#1159af!important;color:#fff!important"'
 S_TH = 'style="padding:7px 9px;text-align:left!important;font-weight:600;background-color:#1159af!important;color:#fff!important;white-space:nowrap"'
 S_TD = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0e0e0"'
 S_TD_DATE = 'style="padding:6px 9px;vertical-align:middle;border-bottom:1px solid #e0e0e0;white-space:nowrap"'
-S_BADGE_HEIM = 'class="abi-badge-heim"'
-S_BADGE_AUSW = 'class="abi-badge-ausw"'
+# Auswärts-Badge entfällt bewusst (mehr Platz für Ortsnamen); Heim-Badge orange als Komplementärfarbe zu Blau
+S_BADGE_HEIM = 'class="abi-badge-heim" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.75em;font-weight:bold;background:#f57c00;color:#fff"'
 S_TITEL = 'style="font-size:14px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
@@ -610,7 +610,7 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         gast = filtered["Gast"][ind].replace("\u200b", "")
         textwidth = 20
         is_heimspiel = heim == ABI_TEAM
-        badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
+        badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else ""
         if is_heimspiel:
             heim_text = f"{heim} {filtered['Team'][ind]}"
             gast_text = gast if len(gast) < textwidth else f"{gast[:textwidth]}..."
@@ -624,14 +624,16 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
         ergebnis = str(filtered["Ergebnis"][ind]).strip() if "Ergebnis" in filtered.columns else ""
         spielort_text = str(filtered["Spielort"][ind]).strip()
         spielort_url = filtered["Spielort_URL"][ind]
-        spielort_html = ""
-        if isinstance(spielort_url, str) and spielort_url and spielort_text:
-            spielort_html = f' · 📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a>'
+        zusatz_teile = [t for t in (
+            badge,
+            f'📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a>' if isinstance(spielort_url, str) and spielort_url and spielort_text else "",
+        ) if t]
+        zusatz_html = " · " + " · ".join(zusatz_teile) if zusatz_teile else ""
         if ergebnis:
             spiel_text += f'<br><small style="font-weight:bold;color:#1159af">Endstand: {ergebnis}</small>'
         tr_bg = "background-color:#f0f4fb;" if row_num % 2 == 1 else ""
         rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;{tr_bg}">
-      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit} · {badge}{spielort_html}</div>
+      <div style="padding:0 9px;font-weight:600;color:#555">{datum_str} | {zeit}{zusatz_html}</div>
       <div style="padding:2px 9px 0">{spiel_text}</div>
     </div>\n"""
 
@@ -806,7 +808,7 @@ for _, row in ad_teams.iterrows():
         heim = team_spiele["Heim"][ind].replace("\u200b", "")
         gast = team_spiele["Gast"][ind].replace("\u200b", "")
         is_heimspiel = heim == ABI_TEAM
-        badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else f'<span {S_BADGE_AUSW}>Auswärts</span>'
+        badge = f'<span {S_BADGE_HEIM}>Heim</span>' if is_heimspiel else ""
         if is_heimspiel:
             heim_text = f"{heim} {tname}"
         else:
@@ -824,8 +826,9 @@ for _, row in ad_teams.iterrows():
         if isinstance(spielort_url, str) and spielort_url:
             spiel_text += f'<br><small>📍 <a href="{spielort_url}" target="_blank">{spielort_text}</a></small>'
         tr_bg = ' style="background-color:#f0f4fb"' if row_num % 2 == 1 else ""
+        badge_html = f"<br>{badge}" if badge else ""
         team_rows_html += f"""    <tr{tr_bg}>
-      <td {S_TD_DATE}>{datum} | {zeit}<br>{badge}</td>
+      <td {S_TD_DATE}>{datum} | {zeit}{badge_html}</td>
       <td {S_TD}>{spiel_text}</td>
     </tr>\n"""
 
