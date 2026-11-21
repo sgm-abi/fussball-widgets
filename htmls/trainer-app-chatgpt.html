@@ -1,0 +1,344 @@
+
+<style>
+.trainer-page {
+    --abi-blue: #164b83;
+    --abi-light: #edf4fa;
+    --abi-text: #263746;
+    color: var(--abi-text);
+    font-family: inherit;
+    line-height: 1.65;
+}
+
+.trainer-page * {
+    box-sizing: border-box;
+}
+
+.trainer-page h2,
+.trainer-page h3,
+.trainer-page h4 {
+    color: var(--abi-blue);
+    margin-top: 0;
+}
+
+.trainer-page .intro {
+    background: var(--abi-light);
+    padding: 32px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+}
+
+.trainer-page .eyebrow {
+    color: var(--abi-blue);
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.trainer-page .intro h2 {
+    font-size: 32px;
+    margin: 8px 0 14px;
+}
+
+.trainer-page .benefits {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 28px 0;
+}
+
+.trainer-page .benefit {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 22px;
+    text-align: center;
+}
+
+.trainer-page .benefit-icon {
+    font-size: 30px;
+    margin-bottom: 8px;
+}
+
+.trainer-page .benefit strong {
+    display: block;
+    color: var(--abi-blue);
+}
+
+.trainer-page .access {
+    background: var(--abi-blue);
+    color: white;
+    border-radius: 14px;
+    padding: 30px;
+    margin: 35px 0;
+}
+
+.trainer-page .access h3 {
+    color: white;
+}
+
+.trainer-page .access p {
+    color: white;
+}
+
+.trainer-page .button {
+    display: inline-block;
+    background: white;
+    color: var(--abi-blue);
+    padding: 12px 24px;
+    border-radius: 7px;
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.trainer-page .section {
+    margin: 42px 0;
+}
+
+.trainer-page .section h3 {
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.trainer-page .steps {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.trainer-page .step-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 22px;
+}
+
+.trainer-page .step-card h4 {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.trainer-page .number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--abi-light);
+    color: var(--abi-blue);
+    font-weight: bold;
+    border-radius: 50%;
+    margin-bottom: 12px;
+}
+
+.trainer-page .screenshot {
+    background: #f1f5f9;
+    border: 1px dashed #94a3b8;
+    border-radius: 9px;
+    padding: 30px 15px;
+    text-align: center;
+    color: #64748b;
+    font-size: 14px;
+    margin-top: 15px;
+}
+
+.trainer-page .phone-box {
+    background: var(--abi-light);
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 22px;
+}
+
+.trainer-page .phone-box h4 {
+    color: var(--abi-blue);
+}
+
+.trainer-page .phone-box li {
+    margin-bottom: 9px;
+}
+
+.trainer-page .footer-note {
+    background: #f8fafc;
+    border-left: 4px solid var(--abi-blue);
+    padding: 20px;
+    margin-top: 35px;
+}
+
+@media (max-width: 650px) {
+    .trainer-page .benefits,
+    .trainer-page .steps {
+        grid-template-columns: 1fr;
+    }
+
+    .trainer-page .intro {
+        padding: 23px;
+    }
+
+    .trainer-page .intro h2 {
+        font-size: 26px;
+    }
+}
+</style>
+
+<div class="trainer-page">
+
+    <div class="intro">
+        <div class="eyebrow">SGM ABI · TRAINERBEREICH</div>
+        <h2>Weniger Papierkram. Mehr Überblick.</h2>
+        <p>
+            Mit unserer Trainer-App kannst du deine Aufwände rund um
+            den Trainings- und Spielbetrieb ganz einfach digital erfassen.
+            Trainingszeiten, Fahrtkilometer und weitere Tätigkeiten
+            werden zentral gesammelt und können am Jahresende
+            als PDF exportiert und ausgedruckt werden.
+        </p>
+        <p>
+            Die Anwendung funktioniert am PC genauso wie auf dem
+            Smartphone. Du brauchst keine App aus dem App Store
+            herunterzuladen.
+        </p>
+    </div>
+
+    <div class="benefits">
+        <div class="benefit">
+            <div class="benefit-icon">📝</div>
+            <strong>Einfach erfassen</strong>
+            Trainingszeiten und Fahrten digital eintragen.
+        </div>
+        <div class="benefit">
+            <div class="benefit-icon">📱</div>
+            <strong>Überall verfügbar</strong>
+            Am PC oder Smartphone nutzen.
+        </div>
+        <div class="benefit">
+            <div class="benefit-icon">📄</div>
+            <strong>PDF-Export</strong>
+            Alle Einträge am Jahresende ausdrucken.
+        </div>
+    </div>
+
+    <div class="access">
+        <h3>Dein Zugang zur Trainer-App</h3>
+        <p>
+            Für die Nutzung benötigst du einen persönlichen
+            Benutzernamen. Diesen musst du zunächst beantragen.
+            Anschließend kannst du die Trainer-App über den
+            folgenden Link öffnen und dich anmelden.
+        </p>
+        <a class="button"
+           href="HIER-DEINE-APP-URL-EINTRAGEN"
+           target="_blank"
+           rel="noopener">
+            Zur Trainer-App →
+        </a>
+    </div>
+
+    <div class="section">
+        <h3>💻 Nutzung am PC oder Laptop</h3>
+        <p>
+            Am Computer kannst du die Trainer-App direkt über
+            deinen Internetbrowser öffnen. Rufe dazu einfach
+            den oben stehenden Link auf und melde dich mit
+            deinem Benutzernamen an.
+        </p>
+        <div class="screenshot">
+            Hier Screenshot der Trainer-App am PC einfügen
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📱 Nutzung auf dem Smartphone</h3>
+        <p>
+            Besonders praktisch: Du kannst die Trainer-App als
+            Verknüpfung auf deinem Startbildschirm ablegen.
+            So kannst du sie jederzeit mit einem Fingertipp
+            öffnen – fast wie eine normale App.
+        </p>
+
+        <div class="steps">
+            <div class="step-card">
+                <div class="number">1</div>
+                <h4>Trainer-App öffnen</h4>
+                Öffne den Link zur Trainer-App im Browser
+                deines Smartphones.
+                <div class="screenshot">
+                    Screenshot: Trainer-App auf dem Smartphone
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="number">2</div>
+                <h4>Zum Startbildschirm hinzufügen</h4>
+                Wähle im Browser die Funktion
+                „Zum Home-Bildschirm hinzufügen“.
+                <div class="screenshot">
+                    Screenshot: Browser-Menü
+                </div>
+            </div>
+        </div>
+
+        <div class="phone-box">
+            <h4>So geht's:</h4>
+
+            <p><strong>iPhone (Safari)</strong></p>
+            <ol>
+                <li>Trainer-App in Safari öffnen.</li>
+                <li>Teilen-Symbol antippen.</li>
+                <li>„Zum Home-Bildschirm“ auswählen.</li>
+                <li>Mit „Hinzufügen“ bestätigen.</li>
+            </ol>
+
+            <p><strong>Android (Chrome)</strong></p>
+            <ol>
+                <li>Trainer-App in Chrome öffnen.</li>
+                <li>Menü mit den drei Punkten öffnen.</li>
+                <li>„Zum Startbildschirm hinzufügen“
+                    oder „App installieren“ auswählen.</li>
+                <li>Bestätigen.</li>
+            </ol>
+
+            <p>
+                Fertig! Jetzt findest du die Trainer-App direkt
+                als Symbol auf deinem Startbildschirm.
+            </p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Weitere Anleitungen</h3>
+        <p>
+            Hier erklären wir dir die einzelnen Funktionen
+            der Trainer-App Schritt für Schritt.
+        </p>
+
+        <div class="steps">
+            <div class="step-card">
+                <h4>📝 Trainingszeiten erfassen</h4>
+                So dokumentierst du deine Trainingseinheiten.
+            </div>
+
+            <div class="step-card">
+                <h4>🚗 Fahrtkilometer eintragen</h4>
+                So erfasst du deine Fahrten.
+            </div>
+
+            <div class="step-card">
+                <h4>✏️ Einträge bearbeiten</h4>
+                So kannst du vorhandene Angaben korrigieren.
+            </div>
+
+            <div class="step-card">
+                <h4>📄 Jahresübersicht erstellen</h4>
+                So exportierst du deine Daten als PDF.
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        <strong>Fragen oder Probleme?</strong><br>
+        Wenn du Hilfe beim Zugang oder bei der Nutzung
+        der Trainer-App benötigst, wende dich gerne
+        an deinen Ansprechpartner im Trainerteam.
+    </div>
+
+</div>

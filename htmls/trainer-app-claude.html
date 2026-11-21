@@ -1,0 +1,40 @@
+<section class="anleitung">
+  <h1>Trainer-App: Anleitung</h1>
+  <p class="intro">Mit der Trainer-App erfasst du Trainingszeiten und Fahrtkilometer
+  bequem am PC oder Handy und druckst am Jahresende alles als PDF aus.</p>
+
+  <ol class="schritte">
+    <li>
+      <h2>Username beantragen</h2>
+      <p>Schreibe uns kurz mit Name und Mannschaft, dann richten wir deinen Zugang ein.</p>
+      <a class="btn" href="mailto:...">Username anfragen</a>
+    </li>
+    <li>
+      <h2>App öffnen und einloggen</h2>
+      <p>Funktioniert am PC und am Handy im Browser.</p>
+      <a class="btn" href="https://...">Zur Trainer-App</a>
+    </li>
+    <li>
+      <h2>Auf dem Handy als App ablegen</h2>
+      <details>
+        <summary>iPhone (Safari)</summary>
+        Teilen-Symbol antippen → „Zum Home-Bildschirm".
+      </details>
+      <details>
+        <summary>Android (Chrome)</summary>
+        Menü ⋮ → „App installieren" oder „Zum Startbildschirm hinzufügen".
+      </details>
+    </li>
+  </ol>
+</section>
+
+<style>
+.schritte { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 1rem; }
+.schritte li { counter-increment: s; padding: 1rem 1rem 1rem 3.5rem; position: relative;
+  border: 1px solid #ddd; border-radius: 12px; }
+.schritte li::before { content: counter(s); position: absolute; left: 1rem; top: 1rem;
+  width: 2rem; height: 2rem; border-radius: 50%; background: #1a7f37; color: #fff;
+  display: grid; place-items: center; font-weight: 700; }
+.btn { display: inline-block; padding: .7rem 1.2rem; background: #1a7f37; color: #fff;
+  border-radius: 8px; text-decoration: none; }
+</style>
