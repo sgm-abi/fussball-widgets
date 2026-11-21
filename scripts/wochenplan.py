@@ -219,6 +219,10 @@ for idx in range(0, len(team_urls)):
     platz, spiele, tore, punkte = get_team_platz(soup, url)
     if platz:
         print(f"  → Platz {platz} ({spiele} Sp., {tore} Tore, {punkte} Pkt.)")
+        plaetze[team] = platz
+        spiele_dict[team] = spiele
+        tore_dict[team] = tore
+        punkte_dict[team] = punkte
 
     try:
         # Datum und Liga auslesen (befindet sich in jeder 3. Zeile ab 2. Zeile)
@@ -324,13 +328,8 @@ for idx in range(0, len(team_urls)):
             else:
                 df.to_csv(outfile, mode="a", index=False, header=False)
 
-        # Platz nur speichern wenn Team aktuelle Spieldaten hat
         if df.shape[0] > 0:
             teams_mit_daten.add(team)
-            plaetze[team] = platz
-            spiele_dict[team] = spiele
-            tore_dict[team] = tore
-            punkte_dict[team] = punkte
 
     except Exception as e:  # Fix: kein nackter except mehr
         print(f"no data for {team}: {e}")
