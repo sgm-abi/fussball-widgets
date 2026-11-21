@@ -43,9 +43,8 @@ def sftp_upload(local_files: list, kw_current: int):
     Ablauf:
       1. Normale Dateien hochladen (current_week, next_week, last_week, etc.)
       2. spiele_KW{kw_current}.html hochladen (echte Kalenderwoche, nicht Rolling-Window)
-      3. last_week.html befüllen:
-         Sa/So → spiele_KW{kw_current}.html (lokal)
-         Mo–Fr → spiele_KW{kw_prev}.html vom Server
+      3. last_week.html mit der vorherigen KW und bereits gespielten Partien
+         der aktuellen KW befüllen
       4. spiele_KW{kw_current-2}.html löschen (älter als 2 Wochen)
     """
     if not SFTP_PASS:
@@ -512,8 +511,9 @@ def get_ergebnis(spiel_url):
     return ""
 
 # Datum parsen
-heute = datetime.date.today()
-jetzt_str = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
+jetzt = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin"))
+heute = jetzt.date()
+jetzt_str = jetzt.strftime("%d.%m.%Y, %H:%M Uhr")
 
 def parse_datum(datum_str):
     try:
@@ -526,13 +526,13 @@ def in_zeitfenster(datum_str, von, bis):
     d = parse_datum(datum_str)
     return d is not None and von <= d <= bis
 
-# Drei Zeitfenster
+# Rollierende Fenster für Spielortabfrage und Per-Team-Widgets
 lw_von = heute - datetime.timedelta(days=7)   # letzte Woche: vor 7 Tagen
 lw_bis = heute - datetime.timedelta(days=1)   # letzte Woche: gestern
-cw_von = heute                                 # diese Woche: heute
-cw_bis = heute + datetime.timedelta(days=7)   # diese Woche: +7 Tage
-nw_von = heute + datetime.timedelta(days=8)   # nächste Woche: +8 Tage
-nw_bis = heute + datetime.timedelta(days=14)  # nächste Woche: +14 Tage
+cw_von = heute                                 # von heute bis +7 Tage
+cw_bis = heute + datetime.timedelta(days=7)
+nw_von = heute + datetime.timedelta(days=8)   # +8 bis +14 Tage
+nw_bis = heute + datetime.timedelta(days=14)
 
 spielorte_text = []
 spielorte_url = []
@@ -541,7 +541,7 @@ for idx in df.index:
     heim = str(df.loc[idx, "Heim"])
     is_spiel = df.loc[idx, "Typ"] == "Spiel" if "Typ" in df.columns else True
     is_ad_team = team[0] in "ABCD" and is_spiel
-    # Spielort für aktuelle + nächste Woche abrufen (letzte Woche: Spiel bereits gelaufen)
+    # Spielort für die kommenden 14 Tage abrufen
     in_naechste_kw = in_zeitfenster(str(df.loc[idx, "Datum"]), cw_von, nw_bis)
     if is_ad_team and in_naechste_kw:
         print(f"Lade Spielort für {team}: {df.loc[idx, 'Spiel']}")
@@ -568,16 +568,38 @@ S_BADGE_HEIM = 'class="abi-badge-heim" style="display:inline-block;padding:1px 6
 S_TITEL = 'style="font-size:14px;font-weight:700;color:#1159af;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #1159af"'
 S_QUELLE = 'style="font-size:12px;color:#aaa;margin-top:5px;text-align:right"'
 
-def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum", alle_termine=False):
+def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum",
+                      alle_termine=False, only_upcoming=False):
     """Erzeugt eine mobile-first Spielübersicht für den gegebenen Zeitraum."""
     if alle_termine and "Typ" in data.columns:
         spiele = data[data["Typ"] != "Termin"]
         termine = data[data["Typ"] == "Termin"]
         filtered_spiele = spiele[spiele["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))]
-        filtered_termine = termine[termine["Datum"].apply(lambda d: parse_datum(d) is not None and parse_datum(d) >= von)]
+        filtered_termine = termine[termine["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))]
         filtered = pd.concat([filtered_spiele, filtered_termine]).copy()
     else:
         filtered = data[data["Datum"].apply(lambda d: in_zeitfenster(d, von, bis))].copy()
+
+    if only_upcoming and not filtered.empty:
+        now = datetime.datetime.now(tz=ZoneInfo("Europe/Berlin"))
+
+        def kickoff_is_upcoming(row):
+            if row.get("Typ") == "Termin":
+                event_date = parse_datum(str(row["Datum"]))
+                return event_date is not None and event_date >= now.date()
+            match_date = parse_datum(str(row["Datum"]))
+            try:
+                match_time = datetime.datetime.strptime(str(row["Zeit"]).strip(), "%H:%M").time()
+            except ValueError:
+                print(f"⚠️ Anstoßzeit unbekannt – Spiel wird nicht als ausstehend angezeigt: {row.get('Spiel', '')}")
+                return False
+            if match_date is None:
+                return False
+            kickoff = datetime.datetime.combine(match_date, match_time, tzinfo=now.tzinfo)
+            return kickoff > now
+
+        filtered = filtered[filtered.apply(kickoff_is_upcoming, axis=1)].copy()
+
     if not filtered.empty:
         filtered["_sort_datetime"] = pd.to_datetime(
             filtered["Datum"] + " " + filtered["Zeit"],
@@ -650,36 +672,36 @@ def build_spiele_html(data, von, bis, titel, leer_text="Keine Spiele im Zeitraum
 
 
 def build_last_week_html():
-    """Letzte-Woche-Widget mit Ergebnissen, aus gefrorenen KW-Dateien gebaut.
-    Sa/So → aktuelle KW (Woche endet heute), Mo–Fr → vorherige KW."""
-    kw_n = kw_current if heute.weekday() >= 5 else kw_prev
-    kw_path = os.path.join(HTML_DIR, f"spiele_KW{kw_n}.html")
-    if not os.path.exists(kw_path):
-        rows_html = f'    <tr><td colspan="3" style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</td></tr>\n'
-        titel = f"⚽ KW{kw_n}"
-    else:
+    """Vorherige KW plus bereits gespielte Partien der aktuellen KW anzeigen."""
+    rows_html = ""
+    row_num = 0
+
+    for kw_n, nur_mit_ergebnis in ((kw_prev, False), (kw_current, True)):
+        kw_path = os.path.join(HTML_DIR, f"spiele_KW{kw_n}.html")
+        if not os.path.exists(kw_path):
+            continue
+
         with open(kw_path, encoding="utf-8") as f:
             kw_soup = BeautifulSoup(f.read(), HTML_PARSER)
-        rows_html = ""
-        row_num = 0
-        for tr in kw_soup.select("tbody tr"):
-            tds = tr.find_all("td")
-            if len(tds) < 3:
+
+        for spiel in kw_soup.select(".aktuelle > div:nth-of-type(2) > div"):
+            details = spiel.find_all("div", recursive=False)
+            if len(details) < 2:
                 continue
-            link = tds[2].find("a")
+            link = details[1].find("a", href=re.compile(r"/spiel/"))
             if not link:
                 continue
+
             spiel_url = link.get("href", "")
-            # Spielort-<small> entfernen, Ergebnis einfügen
-            small = tds[2].find("small")
-            if small:
-                small.decompose()
-            print(f"Lade Ergebnis ({tds[1].get_text(strip=True)}): {spiel_url}")
+            print(f"Lade Ergebnis ({details[0].get_text(' ', strip=True)}): {spiel_url}")
             ergebnis = get_ergebnis(spiel_url)
             time.sleep(0.5)
-            spiel_content = str(tds[2].find("a"))
+            if nur_mit_ergebnis and not ergebnis:
+                continue
+
+            spiel_content = details[1].decode_contents().strip()
             if ergebnis:
-                is_heim = "abi-badge-heim" in tds[0].decode_contents()
+                is_heim = "abi-badge-heim" in details[0].decode_contents()
                 score_m = re.match(r"(\d+):(\d+)", ergebnis)
                 pokal = ""
                 if score_m:
@@ -691,14 +713,14 @@ def build_last_week_html():
                 spiel_content += f'<br><small style="font-weight:bold;color:#1159af">{pokal}Endstand: {ergebnis}</small>'
             tr_bg = "background-color:#f0f4fb;" if row_num % 2 == 1 else ""
             rows_html += f"""    <div style="padding:8px 0;border-bottom:1px solid #e0e0e0;{tr_bg}">
-            <div style="padding:0 9px;font-weight:600;color:#555">{tds[0].get_text(" ", strip=True)} · {tds[1].get_text(strip=True)}</div>
+            <div style="padding:0 9px;font-weight:600;color:#555">{details[0].decode_contents().strip()}</div>
             <div style="padding:2px 9px 0">{spiel_content}</div>
         </div>\n"""
             row_num += 1
-        if not rows_html:
-            rows_html = f'    <div style="padding:8px;color:#aaa;text-align:center">Keine Spiele letzte Woche (KW{kw_n})</div>\n'
-        titel_el = kw_soup.select_one(".aktuelle > div:first-of-type")
-        titel = titel_el.get_text(strip=True) if titel_el else f"⚽ KW{kw_n}"
+
+    if not rows_html:
+        rows_html = f'    <div style="padding:8px;color:#aaa;text-align:center">Keine Spiele in KW{kw_prev} und noch keine Ergebnisse in KW{kw_current}</div>\n'
+    titel = f"⚽ KW{kw_prev} + Ergebnisse KW{kw_current}"
     return f"""<!-- ABI Spiele -->
 <div class="aktuelle" style="margin:1em 0;text-align:left;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
   <div {S_TITEL}>{titel}</div>
@@ -707,10 +729,14 @@ def build_last_week_html():
 </div>"""
 
 
-# KW-Nummern
+# KW-Nummern und ISO-KW-Grenzen
 kw_current = heute.isocalendar()[1]
 kw_prev    = (heute - datetime.timedelta(weeks=1)).isocalendar()[1]
 kw_start   = heute - datetime.timedelta(days=heute.weekday())  # dieser Montag
+kw_end = kw_start + datetime.timedelta(days=6)
+kw_next_start = kw_start + datetime.timedelta(days=7)
+kw_next_end = kw_next_start + datetime.timedelta(days=6)
+kw_next = kw_next_start.isocalendar()[1]
 
 # KW-Archivdateien für aktuelle + nächste 2 Wochen generieren
 # Regel: Hat die KW bereits begonnen UND die Datei existiert schon → einfrieren
@@ -740,13 +766,14 @@ for delta in range(3):  # KW+0, KW+1, KW+2
         f.write(html)
     print(f"  ✅ {kw_n_file} gespeichert")
 
-# Diese Woche (= bisherige Aktuelle_Spiele.html)
-print(f"Generiere current_week.html ({cw_von} – {cw_bis})")
+# Diese Woche: aktuelle ISO-KW, nur Spiele mit zukünftigem Anstoß
+print(f"Generiere current_week.html (KW{kw_current}: {kw_start} – {kw_end})")
 current_week_html = build_spiele_html(
-    df, cw_von, cw_bis,
-    titel="⚽ Was steht an",
-    leer_text="Keine Spiele diese Woche",
-    alle_termine=True
+    df, kw_start, kw_end,
+    titel=f"⚽ KW{kw_current} ({kw_start.strftime('%d.%m.')} – {kw_end.strftime('%d.%m.%y')})",
+    leer_text=f"Keine ungespielten Spiele in KW{kw_current}",
+    alle_termine=True,
+    only_upcoming=True,
 )
 current_week_path = os.path.join(HTML_DIR, "current_week.html")
 with open(current_week_path, "w", encoding="utf-8") as f:
@@ -754,12 +781,12 @@ with open(current_week_path, "w", encoding="utf-8") as f:
 print("current_week.html gespeichert")
 generated_html_files.append(current_week_path)
 
-# Nächste Woche
-print(f"Generiere next_week.html ({nw_von} – {nw_bis})")
+# Nächste Woche: exakt die nächste ISO-KW
+print(f"Generiere next_week.html (KW{kw_next}: {kw_next_start} – {kw_next_end})")
 next_week_html = build_spiele_html(
-    df, nw_von, nw_bis,
-    titel=f"⚽ Nächste Woche ({nw_von.strftime('%d.%m.')} – {nw_bis.strftime('%d.%m.%y')})",
-    leer_text="Keine Spiele nächste Woche"
+    df, kw_next_start, kw_next_end,
+    titel=f"⚽ KW{kw_next} ({kw_next_start.strftime('%d.%m.')} – {kw_next_end.strftime('%d.%m.%y')})",
+    leer_text=f"Keine Spiele in KW{kw_next}"
 )
 next_week_path = os.path.join(HTML_DIR, "next_week.html")
 with open(next_week_path, "w", encoding="utf-8") as f:
@@ -776,7 +803,7 @@ with open(last_week_path, "w", encoding="utf-8") as f:
 print("last_week.html gespeichert")
 generated_html_files.append(last_week_path)
 
-# kw_data für per-Team-Widgets (aktuelle Woche)
+# Rollierendes 7-Tage-Fenster für Per-Team-Widgets
 kw_data = df[df["Datum"].apply(lambda d: in_zeitfenster(d, cw_von, cw_bis))].copy()
 if not kw_data.empty:
     kw_data["_sort_datetime"] = pd.to_datetime(
